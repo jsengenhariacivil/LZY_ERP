@@ -100,8 +100,9 @@ export default function Obras() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-zinc-800">
-              {filteredObras.map((obra) => (
-                <tr key={obra.id} className="hover:bg-gray-50 dark:hover:bg-zinc-800/20 transition-colors">
+              {filteredObras.map(obra => (
+                <React.Fragment key={obra.id}>
+                  <tr className="border-b border-gray-100 dark:border-zinc-800 hover:bg-gray-50/50 dark:hover:bg-zinc-800/30 transition-colors">
                   <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
                     {obra.name}
                   </td>
@@ -137,7 +138,7 @@ export default function Obras() {
                       <button
                         onClick={() => setCronogramaObraId(obra.id)}
                         className="p-1.5 text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/30 rounded transition-colors"
-                        title="Ver Cronograma"
+                        title="Painel Cronograma"
                       >
                         <BarChart2 size={18} />
                       </button>
@@ -150,14 +151,15 @@ export default function Obras() {
                     </div>
                   </td>
                 </tr>
-              ))}
-              {filteredObras.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
-                    Nenhuma obra encontrada.
-                  </td>
-                </tr>
-              )}
+              </React.Fragment>
+            ))}
+            {filteredObras.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                  Nenhuma obra encontrada.
+                </td>
+              </tr>
+            )}
             </tbody>
           </table>
         </div>

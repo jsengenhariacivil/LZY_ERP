@@ -7,6 +7,13 @@ const generateId = () => Math.random().toString(36).substring(2, 9);
 
 
 // ─── ETAPAS PADRÃO ───────────────────────────────────────────────────────────
+export type SubStage = {
+  id: string;
+  name: string;
+  progress: number;
+  weight?: number;
+};
+
 export type Stage = {
   id: string;
   name: string;
@@ -15,20 +22,88 @@ export type Stage = {
   startDate: string;
   endDate: string;
   value?: number;   // Valor em Reais (opcional para as originais, obrigatório para aditivos)
+  subStages?: SubStage[];
 };
 
+const sub = (name: string, absW: number, parentW: number) => ({ id: generateId(), name, progress: 0, weight: Number(((absW / parentW) * 100).toFixed(2)) });
+
 const DEFAULT_STAGES: Omit<Stage, 'id' | 'startDate' | 'endDate'>[] = [
-  { name: 'Projetos e Licenças',          weight: 5,  progress: 0 },
-  { name: 'Serviços Preliminares',        weight: 5,  progress: 0 },
-  { name: 'Fundação',                     weight: 10, progress: 0 },
-  { name: 'Estrutura',                    weight: 20, progress: 0 },
-  { name: 'Alvenaria e Fechamentos',      weight: 10, progress: 0 },
-  { name: 'Cobertura',                    weight: 5,  progress: 0 },
-  { name: 'Instalações Hidráulicas',      weight: 10, progress: 0 },
-  { name: 'Instalações Elétricas',        weight: 10, progress: 0 },
-  { name: 'Revestimentos e Acabamentos',  weight: 20, progress: 0 },
-  { name: 'Pintura e Entrega',            weight: 5,  progress: 0 },
+  { name: "Projetos e Licen\u00e7as", weight: 4.0, progress: 0, subStages: [
+    sub("Levantamento Topogr\u00e1fico", 0.5, 4.0),
+    sub("Sondagem do Solo (SPT)", 0.5, 4.0),
+    sub("Projeto Arquitet\u00f4nico Executivo", 1.0, 4.0),
+    sub("Projeto Estrutural (Madeira e Concreto)", 1.0, 4.0),
+    sub("Projetos de Instala\u00e7\u00f5es (Hidro/El\u00e9trica/G\u00e1s)", 0.5, 4.0),
+    sub("Alvar\u00e1 de Constru\u00e7\u00e3o e Taxas", 0.5, 4.0),
+  ]},
+  { name: "Servi\u00e7os Preliminares", weight: 3.0, progress: 0, subStages: [
+    sub("Limpeza e Desmatamento do Terreno", 0.5, 3.0),
+    sub("Montagem de Canteiro e Dep\u00f3sito", 0.5, 3.0),
+    sub("Instala\u00e7\u00e3o Provis\u00f3ria de \u00c1gua e Energia", 0.5, 3.0),
+    sub("Fechamento com Tapumes", 0.5, 3.0),
+    sub("Loca\u00e7\u00e3o da Obra com Gabarito", 1.0, 3.0),
+  ]},
+  { name: "Funda\u00e7\u00e3o e Estruturas Enterradas", weight: 14.0, progress: 0, subStages: [
+    sub("Escava\u00e7\u00e3o de Sapatas e Vigas Baldrame", 2.0, 14.0),
+    sub("Arma\u00e7\u00e3o e Formas para Funda\u00e7\u00e3o", 2.0, 14.0),
+    sub("Concretagem de Sapatas e Baldrames", 2.0, 14.0),
+    sub("Impermeabiliza\u00e7\u00e3o de Baldrames", 1.0, 14.0),
+    sub("Escava\u00e7\u00e3o e Estrutura da Caixa D'\u00e1gua Enterrada", 2.0, 14.0),
+    sub("Impermeabiliza\u00e7\u00e3o da Caixa D'\u00e1gua", 1.0, 14.0),
+    sub("Escava\u00e7\u00e3o e Estrutura Bruta da Piscina", 2.0, 14.0),
+    sub("Constru\u00e7\u00e3o da Casa de M\u00e1quinas", 2.0, 14.0),
+  ]},
+  { name: "Estrutura de Madeira", weight: 18.0, progress: 0, subStages: [
+    sub("Recebimento e Confer\u00eancia da Madeira", 2.0, 18.0),
+    sub("Tratamento de Preserva\u00e7\u00e3o da Madeira", 3.0, 18.0),
+    sub("Montagem de Pilares de Madeira", 5.0, 18.0),
+    sub("Montagem de Vigas de Madeira", 5.0, 18.0),
+    sub("Instala\u00e7\u00e3o de Conectores e Ferragens", 3.0, 18.0),
+  ]},
+  { name: "Fechamentos e Alvenaria Mista", weight: 15.0, progress: 0, subStages: [
+    sub("Alvenaria de Veda\u00e7\u00e3o (Cozinha/Banheiros)", 3.0, 15.0),
+    sub("Instala\u00e7\u00e3o de Estrutura de Fixa\u00e7\u00e3o das T\u00e1buas", 3.0, 15.0),
+    sub("Montagem de T\u00e1buas de Madeira Externas", 4.0, 15.0),
+    sub("Montagem de T\u00e1buas de Madeira Internas", 3.0, 15.0),
+    sub("Isolamento T\u00e9rmico/Ac\u00fastico entre Paredes", 2.0, 15.0),
+  ]},
+  { name: "Cobertura e Pergolados", weight: 10.0, progress: 0, subStages: [
+    sub("Estrutura do Telhado (Madeira)", 3.0, 10.0),
+    sub("Instala\u00e7\u00e3o de Telhas", 3.0, 10.0),
+    sub("Instala\u00e7\u00e3o de Calhas e Rufos", 1.0, 10.0),
+    sub("Execu\u00e7\u00e3o de Pergolados de Madeira", 2.0, 10.0),
+    sub("Impermeabiliza\u00e7\u00e3o de \u00c1reas de Cobertura Plana", 1.0, 10.0),
+  ]},
+  { name: "Instala\u00e7\u00f5es Hidr\u00e1ulicas e G\u00e1s", weight: 11.0, progress: 0, subStages: [
+    sub("Tubula\u00e7\u00e3o de \u00c1gua Fria e Quente", 3.0, 11.0),
+    sub("Instala\u00e7\u00e3o do Sistema de Pressuriza\u00e7\u00e3o", 2.0, 11.0),
+    sub("Instala\u00e7\u00e3o do Aquecedor a G\u00e1s", 1.5, 11.0),
+    sub("Rede de Esgoto Interna", 1.5, 11.0),
+    sub("Instala\u00e7\u00e3o de Biodigestor", 1.5, 11.0),
+    sub("Constru\u00e7\u00e3o de Sumidouro e Valas", 1.5, 11.0),
+  ]},
+  { name: "El\u00e9trica e Gerador", weight: 9.0, progress: 0, subStages: [
+    sub("Passagem de Eletrodutos e Caixas", 3.0, 9.0),
+    sub("Passagem de Fia\u00e7\u00e3o e Cabos", 2.0, 9.0),
+    sub("Montagem do Quadro de Distribui\u00e7\u00e3o", 1.5, 9.0),
+    sub("Instala\u00e7\u00e3o e Conex\u00e3o do Gerador", 2.5, 9.0),
+  ]},
+  { name: "\u00c1reas de Lazer e Externas", weight: 10.0, progress: 0, subStages: [
+    sub("Revestimento Interno da Piscina", 2.5, 10.0),
+    sub("Instala\u00e7\u00e3o de Bombas e Filtros", 1.5, 10.0),
+    sub("Execu\u00e7\u00e3o de Deck de Madeira", 3.0, 10.0),
+    sub("Constru\u00e7\u00e3o da Garagem", 2.0, 10.0),
+    sub("Cal\u00e7adas e Acessos Externos", 1.0, 10.0),
+  ]},
+  { name: "Acabamentos e Entrega", weight: 6.0, progress: 0, subStages: [
+    sub("Revestimentos Cer\u00e2micos (Paredes Molhadas)", 2.0, 6.0),
+    sub("Pintura e Verniz Final em Madeiras", 2.0, 6.0),
+    sub("Instala\u00e7\u00e3o de Lou\u00e7as e Metais", 1.0, 6.0),
+    sub("Limpeza Fina e Entrega das Chaves", 1.0, 6.0),
+  ]},
 ];
+
+
 
 function generateStages(startDate: string, endDate: string): Stage[] {
   const start = new Date(startDate).getTime();
@@ -41,7 +116,10 @@ function generateStages(startDate: string, endDate: string): Stage[] {
     const stageEndMs = start + totalMs * (accumulated / 100);
     const stageStart = new Date(stageStartMs).toISOString().split('T')[0];
     const stageEnd   = new Date(stageEndMs).toISOString().split('T')[0];
-    return { id: generateId(), ...s, startDate: stageStart, endDate: stageEnd };
+    
+    const newSubStages = s.subStages ? s.subStages.map(sub => ({ ...sub, id: generateId() })) : undefined;
+    
+    return { id: generateId(), ...s, subStages: newSubStages, startDate: stageStart, endDate: stageEnd };
   });
 }
 
@@ -109,6 +187,7 @@ export type TimePunch = {
 export type Employee = {
   id: string;
   name: string;
+  cpf?: string;
   role: string;
   status: 'Ativo' | 'Férias' | 'Desligado';
   contact: string;
@@ -118,18 +197,37 @@ export type Employee = {
 };
 
 // ─── STATE INTERFACE ──────────────────────────────────────────────────────────
+export type User = {
+  id: string;
+  name: string;
+  username: string;
+  password?: string; // Optional because we don't send it around everywhere, but used for login
+  role: 'admin' | 'user';
+};
+
 interface AppState {
+  currentUser: User | null;
+  users: User[];
   obras: Obra[];
   transactions: Transaction[];
   inventory: InventoryItem[];
   employees: Employee[];
   isDarkMode: boolean;
 
+  login: (username: string, password?: string) => boolean;
+  logout: () => void;
+  addUser: (user: Omit<User, 'id'>) => void;
+  updateUser: (id: string, user: Partial<User>) => void;
+  deleteUser: (id: string) => void;
+
   addObra: (obra: Omit<Obra, 'id' | 'progress' | 'stages'>) => void;
   updateObra: (id: string, obra: Partial<Obra>) => void;
   deleteObra: (id: string) => void;
   updateStage: (obraId: string, stageId: string, data: Partial<Stage>) => void;
   addExtraService: (obraId: string, service: { name: string; value: number; startDate: string; endDate: string }) => void;
+  addSubStage: (obraId: string, stageId: string, name: string, weight?: number) => void;
+  updateSubStage: (obraId: string, stageId: string, subStageId: string, data: Partial<SubStage>) => void;
+  deleteSubStage: (obraId: string, stageId: string, subStageId: string) => void;
 
   addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
   updateTransaction: (id: string, transaction: Partial<Transaction>) => void;
@@ -149,30 +247,103 @@ interface AppState {
 
   toggleDarkMode: () => void;
   seedImageTransactions: () => void;
+  autoFillWeek: (startDate: string, endDate: string) => void;
+  addAdvance: (employeeId: string, amount: number, date: string, note: string) => void;
 }
 
 // ─── SEED: Obra Outeiro com etapas reais ─────────────────────────────────────
 const outeirosStages: Stage[] = [
-  { id: 's1',  name: 'Projetos e Licenças',          weight: 5,  progress: 100, startDate: '2025-04-01', endDate: '2025-04-15' },
-  { id: 's2',  name: 'Serviços Preliminares',        weight: 5,  progress: 100, startDate: '2025-04-15', endDate: '2025-04-30' },
-  { id: 's3',  name: 'Fundação',                     weight: 10, progress: 100, startDate: '2025-04-30', endDate: '2025-06-30' },
-  { id: 's4',  name: 'Estrutura',                    weight: 20, progress: 100, startDate: '2025-06-30', endDate: '2025-10-15' },
-  { id: 's5',  name: 'Alvenaria e Fechamentos',      weight: 10, progress: 80,  startDate: '2025-10-15', endDate: '2025-12-15' },
-  { id: 's6',  name: 'Cobertura',                    weight: 5,  progress: 60,  startDate: '2025-12-15', endDate: '2026-01-15' },
-  { id: 's7',  name: 'Instalações Hidráulicas',      weight: 10, progress: 20,  startDate: '2026-01-15', endDate: '2026-03-15' },
-  { id: 's8',  name: 'Instalações Elétricas',        weight: 10, progress: 10,  startDate: '2026-03-15', endDate: '2026-05-15' },
-  { id: 's9',  name: 'Revestimentos e Acabamentos',  weight: 20, progress: 0,   startDate: '2026-05-15', endDate: '2026-09-15' },
-  { id: 's10', name: 'Pintura e Entrega',             weight: 5,  progress: 0,   startDate: '2026-09-15', endDate: '2026-10-30' },
+  { id: 's1', name: "Projetos e Licen\u00e7as", weight: 4.0, progress: 100, startDate: '2025-04-01', endDate: '2025-04-15', subStages: [
+    { id: generateId(), name: "Levantamento Topogr\u00e1fico", progress: 100, weight: Number(((0.5 / 4.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Sondagem do Solo (SPT)", progress: 100, weight: Number(((0.5 / 4.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Projeto Arquitet\u00f4nico Executivo", progress: 100, weight: Number(((1.0 / 4.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Projeto Estrutural (Madeira e Concreto)", progress: 100, weight: Number(((1.0 / 4.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Projetos de Instala\u00e7\u00f5es (Hidro/El\u00e9trica/G\u00e1s)", progress: 100, weight: Number(((0.5 / 4.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Alvar\u00e1 de Constru\u00e7\u00e3o e Taxas", progress: 100, weight: Number(((0.5 / 4.0) * 100).toFixed(2)) },
+  ]},
+  { id: 's2', name: "Servi\u00e7os Preliminares", weight: 3.0, progress: 100, startDate: '2025-04-15', endDate: '2025-04-30', subStages: [
+    { id: generateId(), name: "Limpeza e Desmatamento do Terreno", progress: 100, weight: Number(((0.5 / 3.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Montagem de Canteiro e Dep\u00f3sito", progress: 100, weight: Number(((0.5 / 3.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Instala\u00e7\u00e3o Provis\u00f3ria de \u00c1gua e Energia", progress: 100, weight: Number(((0.5 / 3.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Fechamento com Tapumes", progress: 100, weight: Number(((0.5 / 3.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Loca\u00e7\u00e3o da Obra com Gabarito", progress: 100, weight: Number(((1.0 / 3.0) * 100).toFixed(2)) },
+  ]},
+  { id: 's3', name: "Funda\u00e7\u00e3o e Estruturas Enterradas", weight: 14.0, progress: 100, startDate: '2025-04-30', endDate: '2025-06-30', subStages: [
+    { id: generateId(), name: "Escava\u00e7\u00e3o de Sapatas e Vigas Baldrame", progress: 100, weight: Number(((2.0 / 14.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Arma\u00e7\u00e3o e Formas para Funda\u00e7\u00e3o", progress: 100, weight: Number(((2.0 / 14.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Concretagem de Sapatas e Baldrames", progress: 100, weight: Number(((2.0 / 14.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Impermeabiliza\u00e7\u00e3o de Baldrames", progress: 100, weight: Number(((1.0 / 14.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Escava\u00e7\u00e3o e Estrutura da Caixa D'\u00e1gua Enterrada", progress: 100, weight: Number(((2.0 / 14.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Impermeabiliza\u00e7\u00e3o da Caixa D'\u00e1gua", progress: 100, weight: Number(((1.0 / 14.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Escava\u00e7\u00e3o e Estrutura Bruta da Piscina", progress: 100, weight: Number(((2.0 / 14.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Constru\u00e7\u00e3o da Casa de M\u00e1quinas", progress: 100, weight: Number(((2.0 / 14.0) * 100).toFixed(2)) },
+  ]},
+  { id: 's4', name: "Estrutura de Madeira", weight: 18.0, progress: 100, startDate: '2025-06-30', endDate: '2025-10-15', subStages: [
+    { id: generateId(), name: "Recebimento e Confer\u00eancia da Madeira", progress: 100, weight: Number(((2.0 / 18.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Tratamento de Preserva\u00e7\u00e3o da Madeira", progress: 100, weight: Number(((3.0 / 18.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Montagem de Pilares de Madeira", progress: 100, weight: Number(((5.0 / 18.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Montagem de Vigas de Madeira", progress: 100, weight: Number(((5.0 / 18.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Instala\u00e7\u00e3o de Conectores e Ferragens", progress: 100, weight: Number(((3.0 / 18.0) * 100).toFixed(2)) },
+  ]},
+  { id: 's5', name: "Fechamentos e Alvenaria Mista", weight: 15.0, progress: 80, startDate: '2025-10-15', endDate: '2025-12-15', subStages: [
+    { id: generateId(), name: "Alvenaria de Veda\u00e7\u00e3o (Cozinha/Banheiros)", progress: 80, weight: Number(((3.0 / 15.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Instala\u00e7\u00e3o de Estrutura de Fixa\u00e7\u00e3o das T\u00e1buas", progress: 80, weight: Number(((3.0 / 15.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Montagem de T\u00e1buas de Madeira Externas", progress: 80, weight: Number(((4.0 / 15.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Montagem de T\u00e1buas de Madeira Internas", progress: 80, weight: Number(((3.0 / 15.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Isolamento T\u00e9rmico/Ac\u00fastico entre Paredes", progress: 80, weight: Number(((2.0 / 15.0) * 100).toFixed(2)) },
+  ]},
+  { id: 's6', name: "Cobertura e Pergolados", weight: 10.0, progress: 60, startDate: '2025-12-15', endDate: '2026-01-15', subStages: [
+    { id: generateId(), name: "Estrutura do Telhado (Madeira)", progress: 60, weight: Number(((3.0 / 10.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Instala\u00e7\u00e3o de Telhas", progress: 60, weight: Number(((3.0 / 10.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Instala\u00e7\u00e3o de Calhas e Rufos", progress: 60, weight: Number(((1.0 / 10.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Execu\u00e7\u00e3o de Pergolados de Madeira", progress: 60, weight: Number(((2.0 / 10.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Impermeabiliza\u00e7\u00e3o de \u00c1reas de Cobertura Plana", progress: 60, weight: Number(((1.0 / 10.0) * 100).toFixed(2)) },
+  ]},
+  { id: 's7', name: "Instala\u00e7\u00f5es Hidr\u00e1ulicas e G\u00e1s", weight: 11.0, progress: 20, startDate: '2026-01-15', endDate: '2026-03-15', subStages: [
+    { id: generateId(), name: "Tubula\u00e7\u00e3o de \u00c1gua Fria e Quente", progress: 20, weight: Number(((3.0 / 11.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Instala\u00e7\u00e3o do Sistema de Pressuriza\u00e7\u00e3o", progress: 20, weight: Number(((2.0 / 11.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Instala\u00e7\u00e3o do Aquecedor a G\u00e1s", progress: 20, weight: Number(((1.5 / 11.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Rede de Esgoto Interna", progress: 20, weight: Number(((1.5 / 11.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Instala\u00e7\u00e3o de Biodigestor", progress: 20, weight: Number(((1.5 / 11.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Constru\u00e7\u00e3o de Sumidouro e Valas", progress: 20, weight: Number(((1.5 / 11.0) * 100).toFixed(2)) },
+  ]},
+  { id: 's8', name: "El\u00e9trica e Gerador", weight: 9.0, progress: 10, startDate: '2026-03-15', endDate: '2026-05-15', subStages: [
+    { id: generateId(), name: "Passagem de Eletrodutos e Caixas", progress: 10, weight: Number(((3.0 / 9.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Passagem de Fia\u00e7\u00e3o e Cabos", progress: 10, weight: Number(((2.0 / 9.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Montagem do Quadro de Distribui\u00e7\u00e3o", progress: 10, weight: Number(((1.5 / 9.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Instala\u00e7\u00e3o e Conex\u00e3o do Gerador", progress: 10, weight: Number(((2.5 / 9.0) * 100).toFixed(2)) },
+  ]},
+  { id: 's9', name: "\u00c1reas de Lazer e Externas", weight: 10.0, progress: 0, startDate: '2026-05-15', endDate: '2026-09-15', subStages: [
+    { id: generateId(), name: "Revestimento Interno da Piscina", progress: 0, weight: Number(((2.5 / 10.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Instala\u00e7\u00e3o de Bombas e Filtros", progress: 0, weight: Number(((1.5 / 10.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Execu\u00e7\u00e3o de Deck de Madeira", progress: 0, weight: Number(((3.0 / 10.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Constru\u00e7\u00e3o da Garagem", progress: 0, weight: Number(((2.0 / 10.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Cal\u00e7adas e Acessos Externos", progress: 0, weight: Number(((1.0 / 10.0) * 100).toFixed(2)) },
+  ]},
+  { id: 's10', name: "Acabamentos e Entrega", weight: 6.0, progress: 0, startDate: '2026-09-15', endDate: '2026-10-30', subStages: [
+    { id: generateId(), name: "Revestimentos Cer\u00e2micos (Paredes Molhadas)", progress: 0, weight: Number(((2.0 / 6.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Pintura e Verniz Final em Madeiras", progress: 0, weight: Number(((2.0 / 6.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Instala\u00e7\u00e3o de Lou\u00e7as e Metais", progress: 0, weight: Number(((1.0 / 6.0) * 100).toFixed(2)) },
+    { id: generateId(), name: "Limpeza Fina e Entrega das Chaves", progress: 0, weight: Number(((1.0 / 6.0) * 100).toFixed(2)) },
+  ]},
 ];
+
+
 
 // ─── STORE ────────────────────────────────────────────────────────────────────
 export const useStore = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
+      currentUser: null,
+      users: [
+        { id: 'u1', name: 'Administrador', username: 'adm', password: '123', role: 'admin' },
+        { id: 'u2', name: 'Engenharia', username: 'engenharia', password: '123', role: 'admin' },
+      ],
       obras: [
         {
           id: '1',
-          name: 'Obra Outeiro',
+          name: 'Casa Outeiro',
+          totalValue: 1200000,
           status: 'Em Andamento',
           progress: calcProgress(outeirosStages),
           budget: 500000,
@@ -259,6 +430,57 @@ export const useStore = create<AppState>()(
         })
       })),
 
+      addSubStage: (obraId, stageId, name, weight = 0) => set((state) => ({
+        obras: state.obras.map(o => {
+          if (o.id !== obraId) return o;
+          const stages = o.stages.map(s => {
+            if (s.id !== stageId) return s;
+            const newSub = { id: generateId(), name, progress: 0, weight };
+            return { ...s, subStages: [...(s.subStages || []), newSub] };
+          });
+          return { ...o, stages };
+        })
+      })),
+
+      updateSubStage: (obraId, stageId, subStageId, data) => set((state) => ({
+        obras: state.obras.map(o => {
+          if (o.id !== obraId) return o;
+          const stages = o.stages.map(s => {
+            if (s.id !== stageId) return s;
+            const subStages = (s.subStages || []).map(sub => sub.id === subStageId ? { ...sub, ...data } : sub);
+            
+            const totalWeight = subStages.reduce((acc, sub) => acc + (sub.weight || 0), 0);
+            const newProgress = subStages.length > 0 
+              ? (totalWeight > 0 
+                  ? Math.round(subStages.reduce((acc, sub) => acc + sub.progress * ((sub.weight || 0) / totalWeight), 0))
+                  : Math.round(subStages.reduce((acc, sub) => acc + sub.progress, 0) / subStages.length))
+              : s.progress;
+
+            return { ...s, subStages, progress: newProgress };
+          });
+          return { ...o, stages, progress: calcProgress(stages) };
+        })
+      })),
+
+      deleteSubStage: (obraId, stageId, subStageId) => set((state) => ({
+        obras: state.obras.map(o => {
+          if (o.id !== obraId) return o;
+          const stages = o.stages.map(s => {
+            if (s.id !== stageId) return s;
+            const subStages = (s.subStages || []).filter(sub => sub.id !== subStageId);
+            const totalWeight = subStages.reduce((acc, sub) => acc + (sub.weight || 0), 0);
+            const newProgress = subStages.length > 0 
+              ? (totalWeight > 0 
+                  ? Math.round(subStages.reduce((acc, sub) => acc + sub.progress * ((sub.weight || 0) / totalWeight), 0))
+                  : Math.round(subStages.reduce((acc, sub) => acc + sub.progress, 0) / subStages.length))
+              : s.progress;
+
+            return { ...s, subStages, progress: newProgress };
+          });
+          return { ...o, stages, progress: calcProgress(stages) };
+        })
+      })),
+
       // ── Transactions ─────────────────────────────────────────────────────
       addTransaction: (transaction) => set((state) => {
         const newTrans = { ...transaction, id: generateId() };
@@ -333,6 +555,40 @@ export const useStore = create<AppState>()(
             : e
         )
       })),
+      addAdvance: (employeeId, amount, date, note) => set((state) => {
+        const emp = state.employees.find(e => e.id === employeeId);
+        if (!emp) return state;
+
+        const newPunch = {
+          id: generateId(),
+          date,
+          entry: '00:00',
+          exit: '00:00',
+          hoursWorked: 0,
+          valuePaid: -Math.abs(amount),
+          note: note || 'Adiantamento'
+        };
+
+        const newTransaction = {
+          id: generateId(),
+          description: `Adiantamento - ${emp.name} (${note || 'Adiantamento'})`,
+          amount: Math.abs(amount),
+          type: 'despesa' as const,
+          category: 'Serviços',
+          date,
+          entity: 'PJ' as const,
+          status: 'Pago' as const
+        };
+
+        return {
+          employees: state.employees.map(e =>
+            e.id === employeeId
+              ? { ...e, timePunches: [...(e.timePunches ?? []), newPunch] }
+              : e
+          ),
+          transactions: [...state.transactions, newTransaction]
+        };
+      }),
 
       // ── Theme ────────────────────────────────────────────────────────────
       toggleDarkMode: () => set((state) => {
@@ -341,6 +597,25 @@ export const useStore = create<AppState>()(
         else document.documentElement.classList.remove('dark');
         return { isDarkMode: newIsDark };
       }),
+
+      // ── Auth & Users ─────────────────────────────────────────────────────────
+      login: (username, password) => {
+        const { users } = get();
+        const user = users.find(u => u.username === username && u.password === password);
+        if (user) {
+          set({ currentUser: user });
+          return true;
+        }
+        return false;
+      },
+      logout: () => set({ currentUser: null }),
+      addUser: (user) => set((state) => ({ users: [...state.users, { ...user, id: generateId() }] })),
+      updateUser: (id, user) => set((state) => ({
+        users: state.users.map(u => u.id === id ? { ...u, ...user } : u)
+      })),
+      deleteUser: (id) => set((state) => ({
+        users: state.users.filter(u => u.id !== id)
+      })),
 
       // ── Seed ─────────────────────────────────────────────────────────────
       seedImageTransactions: () => set((state) => {
@@ -381,10 +656,45 @@ export const useStore = create<AppState>()(
         }));
         return { transactions: [...state.transactions, ...imageTransactions] };
       }),
+
+      autoFillWeek: (startDate, endDate) => set((state) => {
+        const startMs = new Date(startDate + 'T00:00:00').getTime();
+        const endMs = new Date(endDate + 'T00:00:00').getTime();
+        
+        const daysToFill: string[] = [];
+        for (let t = startMs; t <= endMs; t += 86400000) {
+          const d = new Date(t);
+          if (d.getDay() !== 0 && d.getDay() !== 6) {
+            daysToFill.push(d.toISOString().split('T')[0]);
+          }
+        }
+
+        const newEmployees = state.employees.map(e => {
+          if (e.status !== 'Ativo') return e;
+          
+          let newPunches = [...(e.timePunches || [])];
+          for (const date of daysToFill) {
+            if (!newPunches.find(p => p.date === date)) {
+              newPunches.push({
+                id: generateId(),
+                date,
+                entry: '08:00',
+                exit: '17:00',
+                hoursWorked: 8,
+                valuePaid: e.dailyRate ?? 0,
+                note: 'Preenchimento Automático'
+              });
+            }
+          }
+          return { ...e, timePunches: newPunches };
+        });
+
+        return { employees: newEmployees };
+      }),
     }),
     {
       name: 'lzy-erp-storage',
-      version: 3,
+      version: 4,
       migrate: (persistedState: any, version: number) => {
         let state = persistedState ?? {};
 
@@ -401,12 +711,23 @@ export const useStore = create<AppState>()(
         // v2 → v3: employees ganharam dailyRate, paymentType e timePunches
         if (version < 3) {
           const employees = (state.employees ?? []).map((e: any) => ({
+            cpf: '',
             dailyRate: 0,
             paymentType: 'diaria',
             timePunches: [],
             ...e,
           }));
           state = { ...state, employees };
+        }
+
+        // v3 → v4: inject default users if missing
+        if (version < 4) {
+          if (!state.users || state.users.length === 0) {
+            state.users = [
+              { id: 'u1', name: 'Administrador', username: 'adm', password: '123', role: 'admin' },
+              { id: 'u2', name: 'Engenharia', username: 'engenharia', password: '123', role: 'admin' },
+            ];
+          }
         }
 
         return state;

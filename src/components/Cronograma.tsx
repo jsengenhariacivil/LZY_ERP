@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useStore, type Obra, type Stage } from '../store/useStore';
 import {
-  X, TrendingUp, Calendar, DollarSign, CheckCircle2, AlertCircle, Clock, Plus
+  X, TrendingUp, Calendar, DollarSign, CheckCircle2, AlertCircle, Clock, Plus, ChevronDown, ChevronRight, Trash2
 } from 'lucide-react';
 
 interface CronogramaProps {
@@ -30,9 +30,12 @@ const fmtDate = (d: string) =>
   new Date(d + 'T00:00:00').toLocaleDateString('pt-BR');
 
 export default function Cronograma({ obra, onClose }: CronogramaProps) {
-  const { updateStage, addExtraService } = useStore();
+  const { updateStage, addExtraService, addSubStage, updateSubStage, deleteSubStage } = useStore();
   const [editing, setEditing] = useState<string | null>(null);
   const [tempProgress, setTempProgress] = useState(0);
+
+  const [expandedStages, setExpandedStages] = useState<Record<string, boolean>>({});
+  const [newSubStage, setNewSubStage] = useState<Record<string, { name: string; weight: number }>>({});
 
   const [showAddService, setShowAddService] = useState(false);
   const [newService, setNewService] = useState({
@@ -55,6 +58,18 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
   const handleEditSave = (stageId: string) => {
     updateStage(obra.id, stageId, { progress: Math.min(100, Math.max(0, tempProgress)) });
     setEditing(null);
+  };
+
+  const toggleExpand = (stageId: string) => {
+    setExpandedStages(prev => ({ ...prev, [stageId]: !prev[stageId] }));
+  };
+
+  const handleAddSubStage = (stageId: string) => {
+    const data = newSubStage[stageId];
+    if (data && data.name.trim() && data.weight >= 0) {
+      addSubStage(obra.id, stageId, data.name.trim(), data.weight);
+      setNewSubStage(prev => ({ ...prev, [stageId]: { name: '', weight: 0 } }));
+    }
   };
 
   const handleAddServiceSave = (e: React.FormEvent) => {
@@ -223,85 +238,213 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
             {(obra.stages ?? []).map((stage, idx) => {
               const valorEtapa = stage.value ?? (obra.budget * (stage.weight / totalWeight));
               const isEditing  = editing === stage.id;
+              const subStages = stage.subStages || [];
+              const hasSubStages = subStages.length > 0;
+              const isExpanded = expandedStages[stage.id] ?? false;
+
               return (
-                <div
-                  key={stage.id}
-                  className="bg-gray-50 dark:bg-zinc-800/40 rounded-xl border border-gray-100 dark:border-zinc-800 p-4 hover:border-blue-200 dark:hover:border-blue-900 transition-colors"
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                    {/* Número e Nome */}
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <span className="shrink-0 w-7 h-7 rounded-full bg-zinc-200 dark:bg-zinc-700 text-xs font-bold flex items-center justify-center text-zinc-700 dark:text-zinc-300">
-                        {idx + 1}
-                      </span>
-                      {statusIcon(stage.progress)}
-                      <div className="min-w-0">
-                        <p className="font-medium text-zinc-900 dark:text-white truncate">
-                          {stage.name}
-                          {stage.value && <span className="ml-2 text-[10px] uppercase tracking-wider text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/30 px-2 py-0.5 rounded-full font-semibold">Aditivo / Extra</span>}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
-                          <Calendar size={10} />
-                          {fmtDate(stage.startDate)} → {fmtDate(stage.endDate)}
-                        </p>
+                <div key={stage.id} className="bg-gray-50 dark:bg-zinc-800/40 rounded-xl border border-gray-100 dark:border-zinc-800 overflow-hidden hover:border-blue-200 dark:hover:border-blue-900 transition-colors">
+                  <div className="p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      {/* Número e Nome */}
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <button onClick={() => toggleExpand(stage.id)} className="text-gray-400 hover:text-zinc-600 dark:hover:text-zinc-300">
+                          {isExpanded ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                        </button>
+                        <span className="shrink-0 w-7 h-7 rounded-full bg-zinc-200 dark:bg-zinc-700 text-xs font-bold flex items-center justify-center text-zinc-700 dark:text-zinc-300">
+                          {idx + 1}
+                        </span>
+                        {statusIcon(stage.progress)}
+                        <div className="min-w-0 cursor-pointer" onClick={() => toggleExpand(stage.id)}>
+                          <div className="flex items-center flex-wrap gap-2">
+                            <input
+                              type="text"
+                              value={stage.name}
+                              onChange={(e) => updateStage(obra.id, stage.id, { name: e.target.value })}
+                              onClick={(e) => e.stopPropagation()}
+                              className="font-medium text-zinc-900 dark:text-white truncate bg-transparent border border-transparent hover:border-gray-200 dark:hover:border-zinc-700 focus:border-blue-500 rounded px-1 py-0.5 outline-none flex-1 min-w-[150px] transition-colors"
+                            />
+                            {stage.value && <span className="text-[10px] uppercase tracking-wider text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/30 px-2 py-0.5 rounded-full font-semibold">Aditivo / Extra</span>}
+                          </div>
+                          <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                            <Calendar size={10} />
+                            {fmtDate(stage.startDate)} → {fmtDate(stage.endDate)}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Peso e Valor */}
+                      <div className="flex items-center gap-4 shrink-0 text-right">
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Peso Absoluto</p>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            value={stage.weight}
+                            onChange={(e) => updateStage(obra.id, stage.id, { weight: Number(e.target.value) })}
+                            className="w-16 font-semibold text-zinc-800 dark:text-zinc-200 text-sm text-right bg-transparent border border-transparent hover:border-gray-200 dark:hover:border-zinc-700 focus:border-blue-500 rounded px-1 outline-none transition-colors"
+                          />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Orçado</p>
+                          <p className="font-semibold text-zinc-600 dark:text-zinc-400 text-sm">{fmtCurrency(valorEtapa)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Executado</p>
+                          <p className="font-semibold text-emerald-600 dark:text-emerald-400 text-sm">{fmtCurrency(valorEtapa * (stage.progress / 100))}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Progresso</p>
+                          {isEditing && !hasSubStages ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                autoFocus
+                                type="number"
+                                min={0} max={100}
+                                value={tempProgress}
+                                onChange={(e) => setTempProgress(Number(e.target.value))}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleEditSave(stage.id);
+                                  if (e.key === 'Escape') setEditing(null);
+                                }}
+                                className="w-16 px-2 py-1 text-sm text-right border border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-zinc-700 dark:text-white"
+                              />
+                              <span className="text-xs text-zinc-500">%</span>
+                              <button
+                                onClick={() => handleEditSave(stage.id)}
+                                className="px-2 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors"
+                              >
+                                OK
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => !hasSubStages && handleEditStart(stage)}
+                              className={`font-bold text-sm ${hasSubStages ? 'text-blue-600 dark:text-blue-400 cursor-default' : 'text-blue-600 dark:text-blue-400 hover:underline cursor-pointer'}`}
+                              title={hasSubStages ? 'Calculado pelas subetapas' : 'Clique para editar'}
+                            >
+                              {stage.progress}%
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Peso e Valor */}
-                    <div className="flex items-center gap-4 shrink-0 text-right">
-                      <div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Peso Absoluto</p>
-                        <p className="font-semibold text-zinc-800 dark:text-zinc-200 text-sm">{stage.weight.toFixed(1)}</p>
+                    {/* Barra de progresso da etapa */}
+                    <div className="mt-3">
+                      <div className="w-full bg-gray-200 dark:bg-zinc-700 rounded-full h-2 overflow-hidden">
+                        <div
+                          className={`h-2 rounded-full transition-all duration-500 ${statusColor(stage.progress)}`}
+                          style={{ width: `${stage.progress}%` }}
+                        />
                       </div>
-                      <div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Valor</p>
-                        <p className="font-semibold text-emerald-600 dark:text-emerald-400 text-sm">{fmtCurrency(valorEtapa)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">Progresso</p>
-                        {isEditing ? (
-                          <div className="flex items-center gap-1">
+                    </div>
+                  </div>
+
+                  {/* Subetapas Dropdown */}
+                  {isExpanded && (
+                    <div className="bg-white dark:bg-zinc-900 border-t border-gray-100 dark:border-zinc-800 p-4">
+                      <div className="space-y-3">
+                        {subStages.map((sub, subIdx) => {
+                          const subValor = valorEtapa * ((sub.weight || 0) / 100);
+                          return (
+                            <div key={sub.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-gray-50 dark:bg-zinc-800/80 border border-gray-200 dark:border-zinc-700/50 rounded-lg">
+                              <div className="flex items-center gap-3">
+                                <span className="text-xs font-medium text-gray-400">{idx + 1}.{subIdx + 1}</span>
+                                {statusIcon(sub.progress)}
+                                  <input
+                                    type="text"
+                                    value={sub.name}
+                                    onChange={(e) => updateSubStage(obra.id, stage.id, sub.id, { name: e.target.value })}
+                                    className="text-sm font-medium text-gray-800 dark:text-gray-200 bg-transparent border border-transparent hover:border-gray-200 dark:hover:border-zinc-700 focus:border-blue-500 rounded px-1 py-0.5 outline-none flex-1 min-w-[150px] transition-colors"
+                                  />
+                              </div>
+                              <div className="flex items-center gap-4 text-right">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-500">Peso (%):</span>
+                                  <input
+                                    type="number"
+                                    min="0" max="100"
+                                    value={sub.weight || 0}
+                                    onChange={(e) => updateSubStage(obra.id, stage.id, sub.id, { weight: Number(e.target.value) })}
+                                    className="w-16 px-2 py-1 text-sm bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white text-right"
+                                  />
+                                </div>
+                                  <div className="hidden sm:block min-w-[80px]">
+                                    <p className="text-xs text-gray-500">Orçado</p>
+                                    <p className="font-semibold text-zinc-600 dark:text-zinc-400 text-xs">{fmtCurrency(subValor)}</p>
+                                  </div>
+                                  <div className="hidden sm:block min-w-[80px]">
+                                    <p className="text-xs text-gray-500">Executado</p>
+                                    <p className="font-semibold text-emerald-600 dark:text-emerald-400 text-xs">{fmtCurrency(subValor * (sub.progress / 100))}</p>
+                                  </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-500">Executado:</span>
+                                  <input
+                                    type="number"
+                                    min="0" max="100"
+                                    value={sub.progress}
+                                    onChange={(e) => updateSubStage(obra.id, stage.id, sub.id, { progress: Number(e.target.value) })}
+                                    className="w-16 px-2 py-1 text-sm bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white text-right"
+                                  />
+                                  <span className="text-xs text-gray-500">%</span>
+                                </div>
+                                <button
+                                  onClick={() => deleteSubStage(obra.id, stage.id, sub.id)}
+                                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
+                                  title="Remover Subetapa"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {/* Nova Subetapa */}
+                        <div className="flex items-center gap-3 mt-4">
+                          <input
+                            type="text"
+                            placeholder="Nome da nova subetapa..."
+                            value={newSubStage[stage.id]?.name || ''}
+                            onChange={(e) => setNewSubStage(prev => ({ ...prev, [stage.id]: { ...prev[stage.id], name: e.target.value } }))}
+                            className="flex-1 px-3 py-1.5 text-sm bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                          />
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500">Peso:</span>
                             <input
-                              autoFocus
                               type="number"
-                              min={0} max={100}
-                              value={tempProgress}
-                              onChange={(e) => setTempProgress(Number(e.target.value))}
+                              min="0" max="100"
+                              placeholder="%"
+                              value={newSubStage[stage.id]?.weight || ''}
+                              onChange={(e) => setNewSubStage(prev => ({ ...prev, [stage.id]: { ...prev[stage.id], weight: Number(e.target.value) } }))}
                               onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleEditSave(stage.id);
-                                if (e.key === 'Escape') setEditing(null);
+                                if (e.key === 'Enter') handleAddSubStage(stage.id);
                               }}
-                              className="w-16 px-2 py-1 text-sm text-right border border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-zinc-700 dark:text-white"
+                              className="w-20 px-3 py-1.5 text-sm bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white text-right"
                             />
-                            <span className="text-xs text-zinc-500">%</span>
-                            <button
-                              onClick={() => handleEditSave(stage.id)}
-                              className="px-2 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors"
-                            >
-                              OK
-                            </button>
+                            <span className="text-xs text-gray-500">%</span>
                           </div>
-                        ) : (
                           <button
-                            onClick={() => handleEditStart(stage)}
-                            className="font-bold text-blue-600 dark:text-blue-400 text-sm hover:underline cursor-pointer"
+                            onClick={() => handleAddSubStage(stage.id)}
+                            disabled={!(newSubStage[stage.id]?.name?.trim() && newSubStage[stage.id]?.weight > 0)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium bg-zinc-900 hover:bg-zinc-800 disabled:bg-zinc-300 dark:bg-white dark:hover:bg-zinc-200 dark:disabled:bg-zinc-700 text-white dark:text-zinc-900 disabled:text-gray-500 rounded-lg transition-colors"
                           >
-                            {stage.progress}%
+                            <Plus size={16} />
+                            Adicionar
                           </button>
+                        </div>
+                        
+                        {hasSubStages && (
+                          <div className="mt-2 flex items-center justify-between px-2 text-xs text-gray-500">
+                            <span>Soma dos pesos: {subStages.reduce((acc, sub) => acc + (sub.weight || 0), 0)}% (O ideal é fechar em 100%)</span>
+                            <span className="italic">O progresso da etapa pai é automático.</span>
+                          </div>
                         )}
                       </div>
                     </div>
-                  </div>
-
-                  {/* Barra de progresso da etapa */}
-                  <div className="mt-3">
-                    <div className="w-full bg-gray-200 dark:bg-zinc-700 rounded-full h-2 overflow-hidden">
-                      <div
-                        className={`h-2 rounded-full transition-all duration-500 ${statusColor(stage.progress)}`}
-                        style={{ width: `${stage.progress}%` }}
-                      />
-                    </div>
-                  </div>
+                  )}
                 </div>
               );
             })}
