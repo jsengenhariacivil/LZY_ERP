@@ -246,7 +246,7 @@ export default function Dashboard() {
                     <div className="flex-1 min-w-[100px]">
                       <span className="block text-gray-500 dark:text-gray-400 mb-0.5">Defasagem (Medição)</span>
                       <span className={`font-semibold ${defasagem > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
-                        {defasagem > 0 ? \`-\${fmt(defasagem)}\` : \`+\${fmt(Math.abs(defasagem))}\`}
+                        {defasagem > 0 ? `-${fmt(defasagem)}` : `+${fmt(Math.abs(defasagem))}`}
                       </span>
                     </div>
                     {pendente > 0 && (
