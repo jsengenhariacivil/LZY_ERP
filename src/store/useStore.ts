@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 
 // ─── HELPER ──────────────────────────────────────────────────────────────────
-const generateId = () => Math.random().toString(36).substring(2, 9);
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 export type SubStage = {

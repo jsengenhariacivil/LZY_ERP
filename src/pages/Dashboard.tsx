@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   HardHat, ArrowUpRight, ArrowDownRight,
-  Wallet, TrendingDown, TrendingUp, Building2, Users, ChevronDown, ChevronUp, AlertCircle, CheckCircle2, CircleDollarSign
+  Wallet, TrendingDown, TrendingUp, Building2, ChevronDown, ChevronUp, AlertCircle, CircleDollarSign
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 
@@ -53,21 +53,7 @@ export default function Dashboard() {
     .reduce((acc, t) => acc + t.amount, 0);
 
   // ── Mão de Obra ──────────────────────────────────────────────────────────
-  const maoDeObraStats = employees.map(e => {
-    const totalPagoRH = (e.timePunches ?? []).reduce((s, p) => s + p.valuePaid, 0);
-    return { name: e.name, role: e.role, paymentType: e.paymentType ?? 'diaria', dailyRate: e.dailyRate ?? 0, totalPago: totalPagoRH };
-  });
-  const totalMaoPago = maoDeObraStats.reduce((s, e) => s + e.totalPago, 0);
-  const totalMaoMensal = employees
-    .filter(e => e.status === 'Ativo')
-    .reduce((s, e) => {
-      const rate = e.dailyRate ?? 0;
-      if (e.paymentType === 'mensal') return s + rate;
-      if (e.paymentType === 'quinzenal') return s + rate * 2;
-      if (e.paymentType === 'diaria') return s + rate * 22;
-      if (e.paymentType === 'hora') return s + rate * 8 * 22;
-      return s;
-    }, 0);
+  // removido as variaveis não utilizadas
 
   // ── Despesas por obra ────────────────────────────────────────────────────
   const despesasPorObra = obras.map(obra => {
