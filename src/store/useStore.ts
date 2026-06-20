@@ -1,12 +1,10 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { supabase } from '../lib/supabase';
 
 // ─── HELPER ──────────────────────────────────────────────────────────────────
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
-
-
-// ─── ETAPAS PADRÃO ───────────────────────────────────────────────────────────
+// ─── TYPES ───────────────────────────────────────────────────────────────────
 export type SubStage = {
   id: string;
   name: string;
@@ -17,121 +15,14 @@ export type SubStage = {
 export type Stage = {
   id: string;
   name: string;
-  weight: number;   // % financeiro da etapa sobre o total da obra
-  progress: number; // % de execução física desta etapa (0-100)
+  weight: number;
+  progress: number;
   startDate: string;
   endDate: string;
-  value?: number;   // Valor em Reais (opcional para as originais, obrigatório para aditivos)
+  value?: number;
   subStages?: SubStage[];
 };
 
-const sub = (name: string, absW: number, parentW: number) => ({ id: generateId(), name, progress: 0, weight: Number(((absW / parentW) * 100).toFixed(2)) });
-
-const DEFAULT_STAGES: Omit<Stage, 'id' | 'startDate' | 'endDate'>[] = [
-  { name: "Projetos e Licen\u00e7as", weight: 4.0, progress: 0, subStages: [
-    sub("Levantamento Topogr\u00e1fico", 0.5, 4.0),
-    sub("Sondagem do Solo (SPT)", 0.5, 4.0),
-    sub("Projeto Arquitet\u00f4nico Executivo", 1.0, 4.0),
-    sub("Projeto Estrutural (Madeira e Concreto)", 1.0, 4.0),
-    sub("Projetos de Instala\u00e7\u00f5es (Hidro/El\u00e9trica/G\u00e1s)", 0.5, 4.0),
-    sub("Alvar\u00e1 de Constru\u00e7\u00e3o e Taxas", 0.5, 4.0),
-  ]},
-  { name: "Servi\u00e7os Preliminares", weight: 3.0, progress: 0, subStages: [
-    sub("Limpeza e Desmatamento do Terreno", 0.5, 3.0),
-    sub("Montagem de Canteiro e Dep\u00f3sito", 0.5, 3.0),
-    sub("Instala\u00e7\u00e3o Provis\u00f3ria de \u00c1gua e Energia", 0.5, 3.0),
-    sub("Fechamento com Tapumes", 0.5, 3.0),
-    sub("Loca\u00e7\u00e3o da Obra com Gabarito", 1.0, 3.0),
-  ]},
-  { name: "Funda\u00e7\u00e3o e Estruturas Enterradas", weight: 14.0, progress: 0, subStages: [
-    sub("Escava\u00e7\u00e3o de Sapatas e Vigas Baldrame", 2.0, 14.0),
-    sub("Arma\u00e7\u00e3o e Formas para Funda\u00e7\u00e3o", 2.0, 14.0),
-    sub("Concretagem de Sapatas e Baldrames", 2.0, 14.0),
-    sub("Impermeabiliza\u00e7\u00e3o de Baldrames", 1.0, 14.0),
-    sub("Escava\u00e7\u00e3o e Estrutura da Caixa D'\u00e1gua Enterrada", 2.0, 14.0),
-    sub("Impermeabiliza\u00e7\u00e3o da Caixa D'\u00e1gua", 1.0, 14.0),
-    sub("Escava\u00e7\u00e3o e Estrutura Bruta da Piscina", 2.0, 14.0),
-    sub("Constru\u00e7\u00e3o da Casa de M\u00e1quinas", 2.0, 14.0),
-  ]},
-  { name: "Estrutura de Madeira", weight: 18.0, progress: 0, subStages: [
-    sub("Recebimento e Confer\u00eancia da Madeira", 2.0, 18.0),
-    sub("Tratamento de Preserva\u00e7\u00e3o da Madeira", 3.0, 18.0),
-    sub("Montagem de Pilares de Madeira", 5.0, 18.0),
-    sub("Montagem de Vigas de Madeira", 5.0, 18.0),
-    sub("Instala\u00e7\u00e3o de Conectores e Ferragens", 3.0, 18.0),
-  ]},
-  { name: "Fechamentos e Alvenaria Mista", weight: 15.0, progress: 0, subStages: [
-    sub("Alvenaria de Veda\u00e7\u00e3o (Cozinha/Banheiros)", 3.0, 15.0),
-    sub("Instala\u00e7\u00e3o de Estrutura de Fixa\u00e7\u00e3o das T\u00e1buas", 3.0, 15.0),
-    sub("Montagem de T\u00e1buas de Madeira Externas", 4.0, 15.0),
-    sub("Montagem de T\u00e1buas de Madeira Internas", 3.0, 15.0),
-    sub("Isolamento T\u00e9rmico/Ac\u00fastico entre Paredes", 2.0, 15.0),
-  ]},
-  { name: "Cobertura e Pergolados", weight: 10.0, progress: 0, subStages: [
-    sub("Estrutura do Telhado (Madeira)", 3.0, 10.0),
-    sub("Instala\u00e7\u00e3o de Telhas", 3.0, 10.0),
-    sub("Instala\u00e7\u00e3o de Calhas e Rufos", 1.0, 10.0),
-    sub("Execu\u00e7\u00e3o de Pergolados de Madeira", 2.0, 10.0),
-    sub("Impermeabiliza\u00e7\u00e3o de \u00c1reas de Cobertura Plana", 1.0, 10.0),
-  ]},
-  { name: "Instala\u00e7\u00f5es Hidr\u00e1ulicas e G\u00e1s", weight: 11.0, progress: 0, subStages: [
-    sub("Tubula\u00e7\u00e3o de \u00c1gua Fria e Quente", 3.0, 11.0),
-    sub("Instala\u00e7\u00e3o do Sistema de Pressuriza\u00e7\u00e3o", 2.0, 11.0),
-    sub("Instala\u00e7\u00e3o do Aquecedor a G\u00e1s", 1.5, 11.0),
-    sub("Rede de Esgoto Interna", 1.5, 11.0),
-    sub("Instala\u00e7\u00e3o de Biodigestor", 1.5, 11.0),
-    sub("Constru\u00e7\u00e3o de Sumidouro e Valas", 1.5, 11.0),
-  ]},
-  { name: "El\u00e9trica e Gerador", weight: 9.0, progress: 0, subStages: [
-    sub("Passagem de Eletrodutos e Caixas", 3.0, 9.0),
-    sub("Passagem de Fia\u00e7\u00e3o e Cabos", 2.0, 9.0),
-    sub("Montagem do Quadro de Distribui\u00e7\u00e3o", 1.5, 9.0),
-    sub("Instala\u00e7\u00e3o e Conex\u00e3o do Gerador", 2.5, 9.0),
-  ]},
-  { name: "\u00c1reas de Lazer e Externas", weight: 10.0, progress: 0, subStages: [
-    sub("Revestimento Interno da Piscina", 2.5, 10.0),
-    sub("Instala\u00e7\u00e3o de Bombas e Filtros", 1.5, 10.0),
-    sub("Execu\u00e7\u00e3o de Deck de Madeira", 3.0, 10.0),
-    sub("Constru\u00e7\u00e3o da Garagem", 2.0, 10.0),
-    sub("Cal\u00e7adas e Acessos Externos", 1.0, 10.0),
-  ]},
-  { name: "Acabamentos e Entrega", weight: 6.0, progress: 0, subStages: [
-    sub("Revestimentos Cer\u00e2micos (Paredes Molhadas)", 2.0, 6.0),
-    sub("Pintura e Verniz Final em Madeiras", 2.0, 6.0),
-    sub("Instala\u00e7\u00e3o de Lou\u00e7as e Metais", 1.0, 6.0),
-    sub("Limpeza Fina e Entrega das Chaves", 1.0, 6.0),
-  ]},
-];
-
-
-
-function generateStages(startDate: string, endDate: string): Stage[] {
-  const start = new Date(startDate).getTime();
-  const end   = new Date(endDate).getTime();
-  const totalMs = end - start;
-  let accumulated = 0;
-  return DEFAULT_STAGES.map((s) => {
-    const stageStartMs = start + totalMs * (accumulated / 100);
-    accumulated += s.weight;
-    const stageEndMs = start + totalMs * (accumulated / 100);
-    const stageStart = new Date(stageStartMs).toISOString().split('T')[0];
-    const stageEnd   = new Date(stageEndMs).toISOString().split('T')[0];
-    
-    const newSubStages = s.subStages ? s.subStages.map(sub => ({ ...sub, id: generateId() })) : undefined;
-    
-    return { id: generateId(), ...s, subStages: newSubStages, startDate: stageStart, endDate: stageEnd };
-  });
-}
-
-/** Calcula progresso global a partir das etapas (média ponderada) */
-export function calcProgress(stages: Stage[]): number {
-  if (!stages || stages.length === 0) return 0;
-  const totalWeight = stages.reduce((a, s) => a + s.weight, 0);
-  const weighted = stages.reduce((a, s) => a + s.progress * (s.weight / totalWeight), 0);
-  return Math.round(weighted);
-}
-
-// ─── TYPES ───────────────────────────────────────────────────────────────────
 export type Obra = {
   id: string;
   name: string;
@@ -160,7 +51,7 @@ export type InventoryMovement = {
   date: string;
   type: 'entrada' | 'saida';
   quantity: number;
-  obraId?: string; // se for saída para uma obra
+  obraId?: string;
   note: string;
 };
 
@@ -176,11 +67,11 @@ export type InventoryItem = {
 
 export type TimePunch = {
   id: string;
-  date: string;          // YYYY-MM-DD
-  entry: string;         // HH:MM
-  exit: string;          // HH:MM
-  hoursWorked: number;   // calculado
-  valuePaid: number;     // valor pago nesse dia
+  date: string;
+  entry: string;
+  exit: string;
+  hoursWorked: number;
+  valuePaid: number;
   note?: string;
 };
 
@@ -191,21 +82,21 @@ export type Employee = {
   role: string;
   status: 'Ativo' | 'Férias' | 'Desligado';
   contact: string;
-  dailyRate: number;           // valor diário ou por hora
+  dailyRate: number;
   paymentType: 'diaria' | 'quinzenal' | 'mensal' | 'hora';
-  timePunches: TimePunch[];    // cartão ponto
+  timePunches: TimePunch[];
 };
 
-// ─── STATE INTERFACE ──────────────────────────────────────────────────────────
 export type User = {
   id: string;
   name: string;
   username: string;
-  password?: string; // Optional because we don't send it around everywhere, but used for login
+  password?: string;
   role: 'admin' | 'user';
 };
 
 interface AppState {
+  isInitialized: boolean;
   currentUser: User | null;
   users: User[];
   obras: Obra[];
@@ -214,527 +105,433 @@ interface AppState {
   employees: Employee[];
   isDarkMode: boolean;
 
+  initSupabase: () => Promise<void>;
   login: (username: string, password?: string) => boolean;
   logout: () => void;
-  addUser: (user: Omit<User, 'id'>) => void;
-  updateUser: (id: string, user: Partial<User>) => void;
-  deleteUser: (id: string) => void;
+  addUser: (user: Omit<User, 'id'>) => Promise<void>;
+  updateUser: (id: string, user: Partial<User>) => Promise<void>;
+  deleteUser: (id: string) => Promise<void>;
 
-  addObra: (obra: Omit<Obra, 'id' | 'progress' | 'stages'>) => void;
-  updateObra: (id: string, obra: Partial<Obra>) => void;
-  deleteObra: (id: string) => void;
-  updateStage: (obraId: string, stageId: string, data: Partial<Stage>) => void;
-  addExtraService: (obraId: string, service: { name: string; value: number; startDate: string; endDate: string }) => void;
-  addSubStage: (obraId: string, stageId: string, name: string, weight?: number) => void;
-  updateSubStage: (obraId: string, stageId: string, subStageId: string, data: Partial<SubStage>) => void;
-  deleteSubStage: (obraId: string, stageId: string, subStageId: string) => void;
+  addObra: (obra: Omit<Obra, 'id' | 'progress' | 'stages'>) => Promise<void>;
+  updateObra: (id: string, obra: Partial<Obra>) => Promise<void>;
+  deleteObra: (id: string) => Promise<void>;
+  updateStage: (obraId: string, stageId: string, data: Partial<Stage>) => Promise<void>;
+  addExtraService: (obraId: string, service: { name: string; value: number; startDate: string; endDate: string }) => Promise<void>;
+  addSubStage: (obraId: string, stageId: string, name: string, weight?: number) => Promise<void>;
+  updateSubStage: (obraId: string, stageId: string, subStageId: string, data: Partial<SubStage>) => Promise<void>;
+  deleteSubStage: (obraId: string, stageId: string, subStageId: string) => Promise<void>;
 
-  addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
-  updateTransaction: (id: string, transaction: Partial<Transaction>) => void;
-  deleteTransaction: (id: string) => void;
+  addTransaction: (transaction: Omit<Transaction, 'id'>) => Promise<void>;
+  updateTransaction: (id: string, transaction: Partial<Transaction>) => Promise<void>;
+  deleteTransaction: (id: string) => Promise<void>;
 
-  addInventoryItem: (item: Omit<InventoryItem, 'id'>) => void;
-  updateInventoryItem: (id: string, item: Partial<InventoryItem>) => void;
-  deleteInventoryItem: (id: string) => void;
-  addInventoryMovement: (itemId: string, movement: Omit<InventoryMovement, 'id'>) => void;
+  addInventoryItem: (item: Omit<InventoryItem, 'id'>) => Promise<void>;
+  updateInventoryItem: (id: string, item: Partial<InventoryItem>) => Promise<void>;
+  deleteInventoryItem: (id: string) => Promise<void>;
+  addInventoryMovement: (itemId: string, movement: Omit<InventoryMovement, 'id'>) => Promise<void>;
 
-  addEmployee: (employee: Omit<Employee, 'id' | 'timePunches'>) => void;
-  updateEmployee: (id: string, employee: Partial<Employee>) => void;
-  deleteEmployee: (id: string) => void;
-  addTimePunch: (employeeId: string, punch: Omit<TimePunch, 'id'>) => void;
-  updateTimePunch: (employeeId: string, punchId: string, data: Partial<TimePunch>) => void;
-  deleteTimePunch: (employeeId: string, punchId: string) => void;
+  addEmployee: (employee: Omit<Employee, 'id' | 'timePunches'>) => Promise<void>;
+  updateEmployee: (id: string, employee: Partial<Employee>) => Promise<void>;
+  deleteEmployee: (id: string) => Promise<void>;
+  addTimePunch: (employeeId: string, punch: Omit<TimePunch, 'id'>) => Promise<void>;
+  updateTimePunch: (employeeId: string, punchId: string, data: Partial<TimePunch>) => Promise<void>;
+  deleteTimePunch: (employeeId: string, punchId: string) => Promise<void>;
 
   toggleDarkMode: () => void;
   seedImageTransactions: () => void;
-  autoFillWeek: (startDate: string, endDate: string) => void;
-  addAdvance: (employeeId: string, amount: number, date: string, note: string) => void;
+  autoFillWeek: (startDate: string, endDate: string) => Promise<void>;
+  addAdvance: (employeeId: string, amount: number, date: string, note: string) => Promise<void>;
 }
 
-// ─── SEED: Obra Outeiro com etapas reais ─────────────────────────────────────
-const outeirosStages: Stage[] = [
-  { id: 's1', name: "Projetos e Licen\u00e7as", weight: 4.0, progress: 100, startDate: '2025-04-01', endDate: '2025-04-15', subStages: [
-    { id: generateId(), name: "Levantamento Topogr\u00e1fico", progress: 100, weight: Number(((0.5 / 4.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Sondagem do Solo (SPT)", progress: 100, weight: Number(((0.5 / 4.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Projeto Arquitet\u00f4nico Executivo", progress: 100, weight: Number(((1.0 / 4.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Projeto Estrutural (Madeira e Concreto)", progress: 100, weight: Number(((1.0 / 4.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Projetos de Instala\u00e7\u00f5es (Hidro/El\u00e9trica/G\u00e1s)", progress: 100, weight: Number(((0.5 / 4.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Alvar\u00e1 de Constru\u00e7\u00e3o e Taxas", progress: 100, weight: Number(((0.5 / 4.0) * 100).toFixed(2)) },
-  ]},
-  { id: 's2', name: "Servi\u00e7os Preliminares", weight: 3.0, progress: 100, startDate: '2025-04-15', endDate: '2025-04-30', subStages: [
-    { id: generateId(), name: "Limpeza e Desmatamento do Terreno", progress: 100, weight: Number(((0.5 / 3.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Montagem de Canteiro e Dep\u00f3sito", progress: 100, weight: Number(((0.5 / 3.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Instala\u00e7\u00e3o Provis\u00f3ria de \u00c1gua e Energia", progress: 100, weight: Number(((0.5 / 3.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Fechamento com Tapumes", progress: 100, weight: Number(((0.5 / 3.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Loca\u00e7\u00e3o da Obra com Gabarito", progress: 100, weight: Number(((1.0 / 3.0) * 100).toFixed(2)) },
-  ]},
-  { id: 's3', name: "Funda\u00e7\u00e3o e Estruturas Enterradas", weight: 14.0, progress: 100, startDate: '2025-04-30', endDate: '2025-06-30', subStages: [
-    { id: generateId(), name: "Escava\u00e7\u00e3o de Sapatas e Vigas Baldrame", progress: 100, weight: Number(((2.0 / 14.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Arma\u00e7\u00e3o e Formas para Funda\u00e7\u00e3o", progress: 100, weight: Number(((2.0 / 14.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Concretagem de Sapatas e Baldrames", progress: 100, weight: Number(((2.0 / 14.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Impermeabiliza\u00e7\u00e3o de Baldrames", progress: 100, weight: Number(((1.0 / 14.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Escava\u00e7\u00e3o e Estrutura da Caixa D'\u00e1gua Enterrada", progress: 100, weight: Number(((2.0 / 14.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Impermeabiliza\u00e7\u00e3o da Caixa D'\u00e1gua", progress: 100, weight: Number(((1.0 / 14.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Escava\u00e7\u00e3o e Estrutura Bruta da Piscina", progress: 100, weight: Number(((2.0 / 14.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Constru\u00e7\u00e3o da Casa de M\u00e1quinas", progress: 100, weight: Number(((2.0 / 14.0) * 100).toFixed(2)) },
-  ]},
-  { id: 's4', name: "Estrutura de Madeira", weight: 18.0, progress: 100, startDate: '2025-06-30', endDate: '2025-10-15', subStages: [
-    { id: generateId(), name: "Recebimento e Confer\u00eancia da Madeira", progress: 100, weight: Number(((2.0 / 18.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Tratamento de Preserva\u00e7\u00e3o da Madeira", progress: 100, weight: Number(((3.0 / 18.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Montagem de Pilares de Madeira", progress: 100, weight: Number(((5.0 / 18.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Montagem de Vigas de Madeira", progress: 100, weight: Number(((5.0 / 18.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Instala\u00e7\u00e3o de Conectores e Ferragens", progress: 100, weight: Number(((3.0 / 18.0) * 100).toFixed(2)) },
-  ]},
-  { id: 's5', name: "Fechamentos e Alvenaria Mista", weight: 15.0, progress: 80, startDate: '2025-10-15', endDate: '2025-12-15', subStages: [
-    { id: generateId(), name: "Alvenaria de Veda\u00e7\u00e3o (Cozinha/Banheiros)", progress: 80, weight: Number(((3.0 / 15.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Instala\u00e7\u00e3o de Estrutura de Fixa\u00e7\u00e3o das T\u00e1buas", progress: 80, weight: Number(((3.0 / 15.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Montagem de T\u00e1buas de Madeira Externas", progress: 80, weight: Number(((4.0 / 15.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Montagem de T\u00e1buas de Madeira Internas", progress: 80, weight: Number(((3.0 / 15.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Isolamento T\u00e9rmico/Ac\u00fastico entre Paredes", progress: 80, weight: Number(((2.0 / 15.0) * 100).toFixed(2)) },
-  ]},
-  { id: 's6', name: "Cobertura e Pergolados", weight: 10.0, progress: 60, startDate: '2025-12-15', endDate: '2026-01-15', subStages: [
-    { id: generateId(), name: "Estrutura do Telhado (Madeira)", progress: 60, weight: Number(((3.0 / 10.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Instala\u00e7\u00e3o de Telhas", progress: 60, weight: Number(((3.0 / 10.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Instala\u00e7\u00e3o de Calhas e Rufos", progress: 60, weight: Number(((1.0 / 10.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Execu\u00e7\u00e3o de Pergolados de Madeira", progress: 60, weight: Number(((2.0 / 10.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Impermeabiliza\u00e7\u00e3o de \u00c1reas de Cobertura Plana", progress: 60, weight: Number(((1.0 / 10.0) * 100).toFixed(2)) },
-  ]},
-  { id: 's7', name: "Instala\u00e7\u00f5es Hidr\u00e1ulicas e G\u00e1s", weight: 11.0, progress: 20, startDate: '2026-01-15', endDate: '2026-03-15', subStages: [
-    { id: generateId(), name: "Tubula\u00e7\u00e3o de \u00c1gua Fria e Quente", progress: 20, weight: Number(((3.0 / 11.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Instala\u00e7\u00e3o do Sistema de Pressuriza\u00e7\u00e3o", progress: 20, weight: Number(((2.0 / 11.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Instala\u00e7\u00e3o do Aquecedor a G\u00e1s", progress: 20, weight: Number(((1.5 / 11.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Rede de Esgoto Interna", progress: 20, weight: Number(((1.5 / 11.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Instala\u00e7\u00e3o de Biodigestor", progress: 20, weight: Number(((1.5 / 11.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Constru\u00e7\u00e3o de Sumidouro e Valas", progress: 20, weight: Number(((1.5 / 11.0) * 100).toFixed(2)) },
-  ]},
-  { id: 's8', name: "El\u00e9trica e Gerador", weight: 9.0, progress: 10, startDate: '2026-03-15', endDate: '2026-05-15', subStages: [
-    { id: generateId(), name: "Passagem de Eletrodutos e Caixas", progress: 10, weight: Number(((3.0 / 9.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Passagem de Fia\u00e7\u00e3o e Cabos", progress: 10, weight: Number(((2.0 / 9.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Montagem do Quadro de Distribui\u00e7\u00e3o", progress: 10, weight: Number(((1.5 / 9.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Instala\u00e7\u00e3o e Conex\u00e3o do Gerador", progress: 10, weight: Number(((2.5 / 9.0) * 100).toFixed(2)) },
-  ]},
-  { id: 's9', name: "\u00c1reas de Lazer e Externas", weight: 10.0, progress: 0, startDate: '2026-05-15', endDate: '2026-09-15', subStages: [
-    { id: generateId(), name: "Revestimento Interno da Piscina", progress: 0, weight: Number(((2.5 / 10.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Instala\u00e7\u00e3o de Bombas e Filtros", progress: 0, weight: Number(((1.5 / 10.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Execu\u00e7\u00e3o de Deck de Madeira", progress: 0, weight: Number(((3.0 / 10.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Constru\u00e7\u00e3o da Garagem", progress: 0, weight: Number(((2.0 / 10.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Cal\u00e7adas e Acessos Externos", progress: 0, weight: Number(((1.0 / 10.0) * 100).toFixed(2)) },
-  ]},
-  { id: 's10', name: "Acabamentos e Entrega", weight: 6.0, progress: 0, startDate: '2026-09-15', endDate: '2026-10-30', subStages: [
-    { id: generateId(), name: "Revestimentos Cer\u00e2micos (Paredes Molhadas)", progress: 0, weight: Number(((2.0 / 6.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Pintura e Verniz Final em Madeiras", progress: 0, weight: Number(((2.0 / 6.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Instala\u00e7\u00e3o de Lou\u00e7as e Metais", progress: 0, weight: Number(((1.0 / 6.0) * 100).toFixed(2)) },
-    { id: generateId(), name: "Limpeza Fina e Entrega das Chaves", progress: 0, weight: Number(((1.0 / 6.0) * 100).toFixed(2)) },
-  ]},
-];
-
-
+export function calcProgress(stages: Stage[]): number {
+  if (!stages || stages.length === 0) return 0;
+  const totalWeight = stages.reduce((a, s) => a + s.weight, 0);
+  const weighted = stages.reduce((a, s) => a + s.progress * (s.weight / totalWeight), 0);
+  return Math.round(weighted);
+}
 
 // ─── STORE ────────────────────────────────────────────────────────────────────
-export const useStore = create<AppState>()(
-  persist(
-    (set, get) => ({
-      currentUser: null,
-      users: [
-        { id: 'u1', name: 'Administrador', username: 'adm', password: '123', role: 'admin' },
-        { id: 'u2', name: 'Engenharia', username: 'engenharia', password: '123', role: 'admin' },
-      ],
-      obras: [
-        {
-          id: '1',
-          name: 'Casa Outeiro',
-          totalValue: 1200000,
-          status: 'Em Andamento',
-          progress: calcProgress(outeirosStages),
-          budget: 500000,
-          startDate: '2025-04-01',
-          endDate: '2026-10-30',
-          stages: outeirosStages,
-        },
-      ],
-      transactions: [
-        // ── Recebimentos reais da Obra Outeiro ───────────────────────────
-        { id: 'seed-1',  description: 'LZY - PAGAMENTO MÃO DE OBRA INICIAL',          amount: 93000,  type: 'receita', category: 'Recebimento de Obra', date: '2025-04-22', entity: 'PJ', status: 'Recebido', obraId: '1' },
-        { id: 'seed-2',  description: 'LZY - SALDO DE ABRIL',                          amount: 7000,   type: 'receita', category: 'Recebimento de Obra', date: '2025-06-13', entity: 'PJ', status: 'Recebido', obraId: '1' },
-        { id: 'seed-3',  description: 'LZY - PARCIAL MÃO DE OBRA JUNHO',               amount: 6000,   type: 'receita', category: 'Recebimento de Obra', date: '2025-06-13', entity: 'PJ', status: 'Recebido', obraId: '1' },
-        { id: 'seed-4',  description: 'LZY - PARCIAL MÃO DE OBRA JUNHO',               amount: 12000,  type: 'receita', category: 'Recebimento de Obra', date: '2025-06-23', entity: 'PJ', status: 'Recebido', obraId: '1' },
-        { id: 'seed-5',  description: 'LZY - CONSTRUTORA',                             amount: 11900,  type: 'receita', category: 'Recebimento de Obra', date: '2025-08-13', entity: 'PJ', status: 'Recebido', obraId: '1' },
-        { id: 'seed-6',  description: 'LZY - CONSTRUTORA',                             amount: 8000,   type: 'receita', category: 'Recebimento de Obra', date: '2025-08-19', entity: 'PJ', status: 'Recebido', obraId: '1' },
-        { id: 'seed-7',  description: 'LZY - CONSTRUTORA',                             amount: 9800,   type: 'receita', category: 'Recebimento de Obra', date: '2025-08-21', entity: 'PJ', status: 'Recebido', obraId: '1' },
-        { id: 'seed-8',  description: 'LZY - CONSTRUTORA',                             amount: 18000,  type: 'receita', category: 'Recebimento de Obra', date: '2025-08-29', entity: 'PJ', status: 'Recebido', obraId: '1' },
-        { id: 'seed-9',  description: 'LZY - CONSTRUTORA',                             amount: 14595,  type: 'receita', category: 'Recebimento de Obra', date: '2025-09-12', entity: 'PJ', status: 'Recebido', obraId: '1' },
-        { id: 'seed-10', description: 'LZY - CONSTRUTORA',                             amount: 17000,  type: 'receita', category: 'Recebimento de Obra', date: '2025-09-26', entity: 'PJ', status: 'Recebido', obraId: '1' },
-        { id: 'seed-11', description: 'LZY - CONSTRUTORA',                             amount: 17000,  type: 'receita', category: 'Recebimento de Obra', date: '2025-10-10', entity: 'PJ', status: 'Recebido', obraId: '1' },
-        { id: 'seed-12', description: 'LZY - CONSTRUTORA',                             amount: 17000,  type: 'receita', category: 'Recebimento de Obra', date: '2025-11-10', entity: 'PJ', status: 'Recebido', obraId: '1' },
-        { id: 'seed-13', description: 'LZY - CONSTRUTORA - REEMBOLSO GASOLINA OUTROS', amount: 630.65, type: 'receita', category: 'Reembolso',           date: '2025-11-10', entity: 'PJ', status: 'Recebido', obraId: '1' },
-        { id: 'seed-14', description: 'LZY - CONSTRUTORA - PARCIAL MÃO DE OBRA',       amount: 7000,   type: 'receita', category: 'Recebimento de Obra', date: '2025-11-28', entity: 'PJ', status: 'Recebido', obraId: '1' },
-        { id: 'seed-15', description: 'LZY - CONSTRUTORA - MÃO DE OBRA',               amount: 17000,  type: 'receita', category: 'Recebimento de Obra', date: '2025-12-05', entity: 'PJ', status: 'Recebido', obraId: '1' },
-        { id: 'seed-16', description: 'LZY - CONSTRUTORA - REEMBOLSO GASOLINA OUTROS', amount: 235.20, type: 'receita', category: 'Reembolso',           date: '2025-12-05', entity: 'PJ', status: 'Recebido', obraId: '1' },
-        { id: 'seed-17', description: 'LZY - CONSTRUTORA - MÃO DE OBRA',               amount: 17000,  type: 'receita', category: 'Recebimento de Obra', date: '2025-12-18', entity: 'PJ', status: 'Recebido', obraId: '1' },
-        { id: 'seed-18', description: 'LZY - CONSTRUTORA - REEMBOLSO GASOLINA OUTROS', amount: 106.20, type: 'receita', category: 'Reembolso',           date: '2025-12-18', entity: 'PJ', status: 'Recebido', obraId: '1' },
-        { id: 'seed-19', description: 'LZY - CONSTRUTORA - MÃO DE OBRA',               amount: 9800,   type: 'receita', category: 'Recebimento de Obra', date: '2026-02-18', entity: 'PJ', status: 'Recebido', obraId: '1' },
-        { id: 'seed-20', description: 'LZY - CONSTRUTORA - MÃO DE OBRA',               amount: 17000,  type: 'receita', category: 'Recebimento de Obra', date: '2026-03-06', entity: 'PJ', status: 'Recebido', obraId: '1' },
-        { id: 'seed-21', description: 'LZY - CONSTRUTORA - MÃO DE OBRA',               amount: 17000,  type: 'receita', category: 'Recebimento de Obra', date: '2026-03-20', entity: 'PJ', status: 'Recebido', obraId: '1' },
-        { id: 'seed-22', description: 'LZY - CONSTRUTORA - MÃO DE OBRA',               amount: 17000,  type: 'receita', category: 'Recebimento de Obra', date: '2026-04-08', entity: 'PJ', status: 'Recebido', obraId: '1' },
-        { id: 'seed-23', description: 'LZY - MÃO DE OBRA REF. ABRIL (2 QUINZENA)',     amount: 40000,  type: 'receita', category: 'Recebimento de Obra', date: '2026-05-07', entity: 'PJ', status: 'Recebido', obraId: '1' },
-      ],
-      inventory: [],
-      employees: [],
-      isDarkMode: false,
+export const useStore = create<AppState>()((set, get) => ({
+  isInitialized: false,
+  currentUser: null,
+  users: [],
+  obras: [],
+  transactions: [],
+  inventory: [],
+  employees: [],
+  isDarkMode: false,
 
-      // ── Obras ────────────────────────────────────────────────────────────
-      addObra: (obra) => set((state) => {
-        const stages = generateStages(obra.startDate, obra.endDate);
-        const newObra: Obra = { ...obra, id: generateId(), stages, progress: 0 };
-        return { obras: [...state.obras, newObra] };
-      }),
-      updateObra: (id, updated) => set((state) => ({
-        obras: state.obras.map((o) => o.id === id ? { ...o, ...updated } : o)
-      })),
-      deleteObra: (id) => set((state) => ({ obras: state.obras.filter(o => o.id !== id) })),
+  initSupabase: async () => {
+    // Busca dados de todas as tabelas
+    const [
+      { data: dUsers },
+      { data: dObras },
+      { data: dStages },
+      { data: dSubStages },
+      { data: dTransactions },
+      { data: dItems },
+      { data: dMovements },
+      { data: dEmployees },
+      { data: dPunches }
+    ] = await Promise.all([
+      supabase.from('users').select('*'),
+      supabase.from('obras').select('*'),
+      supabase.from('stages').select('*'),
+      supabase.from('sub_stages').select('*'),
+      supabase.from('transactions').select('*'),
+      supabase.from('inventory_items').select('*'),
+      supabase.from('inventory_movements').select('*'),
+      supabase.from('employees').select('*'),
+      supabase.from('time_punches').select('*')
+    ]);
 
-      updateStage: (obraId, stageId, data) => set((state) => ({
+    // Mapeamento Usuarios
+    const users: User[] = (dUsers || []).map(u => ({
+      id: u.id, name: u.name, username: u.username, password: u.password, role: u.role
+    }));
+
+    // Mapeamento Obras -> Stages -> SubStages
+    const obras: Obra[] = (dObras || []).map(o => {
+      const stagesForObra = (dStages || []).filter(s => s.obra_id === o.id).map(s => {
+        const subsForStage = (dSubStages || []).filter(sub => sub.stage_id === s.id).map(sub => ({
+          id: sub.id, name: sub.name, progress: Number(sub.progress), weight: Number(sub.weight)
+        }));
+        return {
+          id: s.id, name: s.name, weight: Number(s.weight), progress: Number(s.progress), 
+          startDate: s.start_date, endDate: s.end_date, value: s.value ? Number(s.value) : undefined,
+          subStages: subsForStage
+        };
+      });
+      return {
+        id: o.id, name: o.name, status: o.status, progress: Number(o.progress), budget: Number(o.budget),
+        startDate: o.start_date, endDate: o.end_date, stages: stagesForObra
+      };
+    });
+
+    // Mapeamento Transactions
+    const transactions: Transaction[] = (dTransactions || []).map(t => ({
+      id: t.id, description: t.description, amount: Number(t.amount), type: t.type, category: t.category,
+      date: t.date, entity: t.entity, status: t.status, obraId: t.obra_id || undefined
+    }));
+
+    // Mapeamento Inventory
+    const inventory: InventoryItem[] = (dItems || []).map(i => {
+      const movs = (dMovements || []).filter(m => m.item_id === i.id).map(m => ({
+        id: m.id, date: m.date, type: m.type, quantity: Number(m.quantity), obraId: m.obra_id || undefined, note: m.note || ''
+      }));
+      return {
+        id: i.id, name: i.name, quantity: Number(i.quantity), minQuantity: Number(i.min_quantity), unit: i.unit, category: i.category,
+        movements: movs
+      };
+    });
+
+    // Mapeamento Employees
+    const employees: Employee[] = (dEmployees || []).map(e => {
+      const punches = (dPunches || []).filter(p => p.employee_id === e.id).map(p => ({
+        id: p.id, date: p.date, entry: p.entry, exit: p.exit, hoursWorked: Number(p.hours_worked), valuePaid: Number(p.value_paid), note: p.note || ''
+      }));
+      return {
+        id: e.id, name: e.name, cpf: e.cpf || '', role: e.role, status: e.status, contact: e.contact || '', 
+        dailyRate: Number(e.daily_rate), paymentType: e.payment_type, timePunches: punches
+      };
+    });
+
+    set({ isInitialized: true, users, obras, transactions, inventory, employees });
+  },
+
+  // USERS
+  login: (username, password) => {
+    const { users } = get();
+    const user = users.find(u => u.username === username && u.password === password);
+    if (user) { set({ currentUser: user }); return true; }
+    return false;
+  },
+  logout: () => set({ currentUser: null }),
+  addUser: async (user) => {
+    const { data } = await supabase.from('users').insert(user).select().single();
+    if (data) set((state) => ({ users: [...state.users, { ...data } as User] }));
+  },
+  updateUser: async (id, user) => {
+    await supabase.from('users').update(user).eq('id', id);
+    set((state) => ({ users: state.users.map(u => u.id === id ? { ...u, ...user } : u) }));
+  },
+  deleteUser: async (id) => {
+    await supabase.from('users').delete().eq('id', id);
+    set((state) => ({ users: state.users.filter(u => u.id !== id) }));
+  },
+
+  // OBRAS
+  addObra: async (obra) => {
+    const dbObra = { name: obra.name, status: obra.status, budget: obra.budget, start_date: obra.startDate, end_date: obra.endDate, progress: 0 };
+    const { data } = await supabase.from('obras').insert(dbObra).select().single();
+    if (data) {
+      const newObra: Obra = { id: data.id, name: data.name, status: data.status as any, progress: 0, budget: Number(data.budget), startDate: data.start_date, endDate: data.end_date, stages: [] };
+      set((state) => ({ obras: [...state.obras, newObra] }));
+    }
+  },
+  updateObra: async (id, updated) => {
+    const toUpdate: any = {};
+    if (updated.name) toUpdate.name = updated.name;
+    if (updated.status) toUpdate.status = updated.status;
+    if (updated.budget !== undefined) toUpdate.budget = updated.budget;
+    if (updated.startDate) toUpdate.start_date = updated.startDate;
+    if (updated.endDate) toUpdate.end_date = updated.endDate;
+    if (updated.progress !== undefined) toUpdate.progress = updated.progress;
+    
+    await supabase.from('obras').update(toUpdate).eq('id', id);
+    set((state) => ({ obras: state.obras.map((o) => o.id === id ? { ...o, ...updated } : o) }));
+  },
+  deleteObra: async (id) => {
+    await supabase.from('obras').delete().eq('id', id);
+    set((state) => ({ obras: state.obras.filter(o => o.id !== id) }));
+  },
+
+  // STAGES
+  updateStage: async (obraId, stageId, data) => {
+    const toUpdate: any = {};
+    if (data.name) toUpdate.name = data.name;
+    if (data.progress !== undefined) toUpdate.progress = data.progress;
+    if (data.startDate) toUpdate.start_date = data.startDate;
+    if (data.endDate) toUpdate.end_date = data.endDate;
+    if (data.value !== undefined) toUpdate.value = data.value;
+
+    await supabase.from('stages').update(toUpdate).eq('id', stageId);
+    set((state) => ({
+      obras: state.obras.map(o => {
+        if (o.id !== obraId) return o;
+        const stages = o.stages.map(s => s.id === stageId ? { ...s, ...data } : s);
+        return { ...o, stages, progress: calcProgress(stages) };
+      })
+    }));
+  },
+  addExtraService: async (obraId, service) => {
+    const obra = get().obras.find(o => o.id === obraId);
+    if (!obra) return;
+    const weight = obra.budget > 0 ? (service.value / obra.budget) * 100 : 10;
+    const dbStage = { obra_id: obraId, name: service.name, weight, progress: 0, start_date: service.startDate, end_date: service.endDate, value: service.value };
+    const { data } = await supabase.from('stages').insert(dbStage).select().single();
+    if (data) {
+      const newStage: Stage = { id: data.id, name: data.name, weight: Number(data.weight), progress: 0, startDate: data.start_date, endDate: data.end_date, value: Number(data.value) };
+      set((state) => ({
         obras: state.obras.map(o => {
           if (o.id !== obraId) return o;
-          const stages = o.stages.map(s => s.id === stageId ? { ...s, ...data } : s);
-          return { ...o, stages, progress: calcProgress(stages) };
-        })
-      })),
-
-      addExtraService: (obraId, service) => set((state) => ({
-        obras: state.obras.map(o => {
-          if (o.id !== obraId) return o;
-          
-          // O peso será proporcional ao valor do serviço vs o orçamento atual.
-          // Se o orçamento é 100k (peso 100) e o serviço é 20k -> peso = 20.
-          const weight = o.budget > 0 ? (service.value / o.budget) * 100 : 10;
-          
-          const newStage: Stage = {
-            id: generateId(),
-            name: service.name,
-            weight: weight,
-            progress: 0,
-            startDate: service.startDate,
-            endDate: service.endDate,
-            value: service.value
-          };
-          
           const newStages = [...o.stages, newStage];
-          
-          return {
-            ...o,
-            budget: o.budget + service.value,
-            stages: newStages,
-            progress: calcProgress(newStages)
-          };
+          return { ...o, budget: o.budget + service.value, stages: newStages, progress: calcProgress(newStages) };
         })
-      })),
-
-      addSubStage: (obraId, stageId, name, weight = 0) => set((state) => ({
+      }));
+    }
+  },
+  addSubStage: async (obraId, stageId, name, weight = 0) => {
+    const { data } = await supabase.from('sub_stages').insert({ stage_id: stageId, name, weight, progress: 0 }).select().single();
+    if (data) {
+      set((state) => ({
         obras: state.obras.map(o => {
           if (o.id !== obraId) return o;
           const stages = o.stages.map(s => {
             if (s.id !== stageId) return s;
-            const newSub = { id: generateId(), name, progress: 0, weight };
+            const newSub = { id: data.id, name: data.name, progress: 0, weight: Number(data.weight) };
             return { ...s, subStages: [...(s.subStages || []), newSub] };
           });
           return { ...o, stages };
         })
-      })),
-
-      updateSubStage: (obraId, stageId, subStageId, data) => set((state) => ({
-        obras: state.obras.map(o => {
-          if (o.id !== obraId) return o;
-          const stages = o.stages.map(s => {
-            if (s.id !== stageId) return s;
-            const subStages = (s.subStages || []).map(sub => sub.id === subStageId ? { ...sub, ...data } : sub);
-            
-            const totalWeight = subStages.reduce((acc, sub) => acc + (sub.weight || 0), 0);
-            const newProgress = subStages.length > 0 
-              ? (totalWeight > 0 
-                  ? Math.round(subStages.reduce((acc, sub) => acc + sub.progress * ((sub.weight || 0) / totalWeight), 0))
-                  : Math.round(subStages.reduce((acc, sub) => acc + sub.progress, 0) / subStages.length))
-              : s.progress;
-
-            return { ...s, subStages, progress: newProgress };
-          });
-          return { ...o, stages, progress: calcProgress(stages) };
-        })
-      })),
-
-      deleteSubStage: (obraId, stageId, subStageId) => set((state) => ({
-        obras: state.obras.map(o => {
-          if (o.id !== obraId) return o;
-          const stages = o.stages.map(s => {
-            if (s.id !== stageId) return s;
-            const subStages = (s.subStages || []).filter(sub => sub.id !== subStageId);
-            const totalWeight = subStages.reduce((acc, sub) => acc + (sub.weight || 0), 0);
-            const newProgress = subStages.length > 0 
-              ? (totalWeight > 0 
-                  ? Math.round(subStages.reduce((acc, sub) => acc + sub.progress * ((sub.weight || 0) / totalWeight), 0))
-                  : Math.round(subStages.reduce((acc, sub) => acc + sub.progress, 0) / subStages.length))
-              : s.progress;
-
-            return { ...s, subStages, progress: newProgress };
-          });
-          return { ...o, stages, progress: calcProgress(stages) };
-        })
-      })),
-
-      // ── Transactions ─────────────────────────────────────────────────────
-      addTransaction: (transaction) => set((state) => {
-        const newTrans = { ...transaction, id: generateId() };
-        let newTransactions = [...state.transactions, newTrans];
-        if (newTrans.type === 'despesa' && newTrans.entity === 'PJ' && ['Pró-labore', 'Retirada'].includes(newTrans.category)) {
-          newTransactions.push({
-            id: generateId(),
-            description: `Recebimento: ${newTrans.description}`,
-            amount: newTrans.amount,
-            type: 'receita',
-            category: 'Salário/Lucro',
-            date: newTrans.date,
-            entity: 'Pessoal',
-            status: newTrans.status === 'Pago' ? 'Recebido' : 'Pendente'
-          });
-        }
-        return { transactions: newTransactions };
-      }),
-      updateTransaction: (id, updated) => set((state) => ({
-        transactions: state.transactions.map((t) => t.id === id ? { ...t, ...updated } : t)
-      })),
-      deleteTransaction: (id) => set((state) => ({ transactions: state.transactions.filter(t => t.id !== id) })),
-
-      // ── Inventory ────────────────────────────────────────────────────────
-      addInventoryItem: (item) => set((state) => ({ inventory: [...state.inventory, { ...item, id: generateId(), movements: [] }] })),
-      updateInventoryItem: (id, updated) => set((state) => ({
-        inventory: state.inventory.map((i) => i.id === id ? { ...i, ...updated } : i)
-      })),
-      deleteInventoryItem: (id) => set((state) => ({ inventory: state.inventory.filter(i => i.id !== id) })),
-      addInventoryMovement: (itemId, movement) => set((state) => ({
-        inventory: state.inventory.map((item) => {
-          if (item.id !== itemId) return item;
-          const newMovement = { ...movement, id: generateId() };
-          const newQuantity = movement.type === 'entrada' 
-            ? item.quantity + movement.quantity 
-            : item.quantity - movement.quantity;
-          
-          return {
-            ...item,
-            quantity: newQuantity,
-            movements: [...(item.movements || []), newMovement]
-          };
-        })
-      })),
-
-      // ── Employees ────────────────────────────────────────────────────────
-      addEmployee: (employee) => set((state) => ({
-        employees: [...state.employees, { ...employee, id: generateId(), timePunches: [] }]
-      })),
-      updateEmployee: (id, updated) => set((state) => ({
-        employees: state.employees.map((e) => e.id === id ? { ...e, ...updated } : e)
-      })),
-      deleteEmployee: (id) => set((state) => ({ employees: state.employees.filter(e => e.id !== id) })),
-      addTimePunch: (employeeId, punch) => set((state) => ({
-        employees: state.employees.map(e =>
-          e.id === employeeId
-            ? { ...e, timePunches: [...(e.timePunches ?? []), { ...punch, id: generateId() }] }
-            : e
-        )
-      })),
-      updateTimePunch: (employeeId, punchId, data) => set((state) => ({
-        employees: state.employees.map(e =>
-          e.id === employeeId
-            ? { ...e, timePunches: (e.timePunches ?? []).map(p => p.id === punchId ? { ...p, ...data } : p) }
-            : e
-        )
-      })),
-      deleteTimePunch: (employeeId, punchId) => set((state) => ({
-        employees: state.employees.map(e =>
-          e.id === employeeId
-            ? { ...e, timePunches: (e.timePunches ?? []).filter(p => p.id !== punchId) }
-            : e
-        )
-      })),
-      addAdvance: (employeeId, amount, date, note) => set((state) => {
-        const emp = state.employees.find(e => e.id === employeeId);
-        if (!emp) return state;
-
-        const newPunch = {
-          id: generateId(),
-          date,
-          entry: '00:00',
-          exit: '00:00',
-          hoursWorked: 0,
-          valuePaid: -Math.abs(amount),
-          note: note || 'Adiantamento'
-        };
-
-        const newTransaction = {
-          id: generateId(),
-          description: `Adiantamento - ${emp.name} (${note || 'Adiantamento'})`,
-          amount: Math.abs(amount),
-          type: 'despesa' as const,
-          category: 'Serviços',
-          date,
-          entity: 'PJ' as const,
-          status: 'Pago' as const
-        };
-
-        return {
-          employees: state.employees.map(e =>
-            e.id === employeeId
-              ? { ...e, timePunches: [...(e.timePunches ?? []), newPunch] }
-              : e
-          ),
-          transactions: [...state.transactions, newTransaction]
-        };
-      }),
-
-      // ── Theme ────────────────────────────────────────────────────────────
-      toggleDarkMode: () => set((state) => {
-        const newIsDark = !state.isDarkMode;
-        if (newIsDark) document.documentElement.classList.add('dark');
-        else document.documentElement.classList.remove('dark');
-        return { isDarkMode: newIsDark };
-      }),
-
-      // ── Auth & Users ─────────────────────────────────────────────────────────
-      login: (username, password) => {
-        const { users } = get();
-        const user = users.find(u => u.username === username && u.password === password);
-        if (user) {
-          set({ currentUser: user });
-          return true;
-        }
-        return false;
-      },
-      logout: () => set({ currentUser: null }),
-      addUser: (user) => set((state) => ({ users: [...state.users, { ...user, id: generateId() }] })),
-      updateUser: (id, user) => set((state) => ({
-        users: state.users.map(u => u.id === id ? { ...u, ...user } : u)
-      })),
-      deleteUser: (id) => set((state) => ({
-        users: state.users.filter(u => u.id !== id)
-      })),
-
-      // ── Seed ─────────────────────────────────────────────────────────────
-      seedImageTransactions: () => set((state) => {
-        const hasSeeded = state.transactions.some(t => t.id === 'img-0');
-        if (hasSeeded) return state;
-        const imageTransactions: Transaction[] = [
-          { description: 'LZY - PAGAMENTO MÃO DE OBRA INICIAL',          amount: 93000,  date: '2025-04-22' },
-          { description: 'LZY - SALDO DE ABRIL',                          amount: 7000,   date: '2025-06-13' },
-          { description: 'LZY - PARCIAL MÃO DE OBRA JUNHO',               amount: 6000,   date: '2025-06-13' },
-          { description: 'LZY - PARCIAL MÃO DE OBRA JUNHO',               amount: 12000,  date: '2025-06-23' },
-          { description: 'LZY - CONSTRUTORA',                             amount: 11900,  date: '2025-08-13' },
-          { description: 'LZY - CONSTRUTORA',                             amount: 8000,   date: '2025-08-19' },
-          { description: 'LZY - CONSTRUTORA',                             amount: 9800,   date: '2025-08-21' },
-          { description: 'LZY - CONSTRUTORA',                             amount: 18000,  date: '2025-08-29' },
-          { description: 'LZY - CONSTRUTORA',                             amount: 14595,  date: '2025-09-12' },
-          { description: 'LZY - CONSTRUTORA',                             amount: 17000,  date: '2025-09-26' },
-          { description: 'LZY - CONSTRUTORA',                             amount: 17000,  date: '2025-10-10' },
-          { description: 'LZY - CONSTRUTORA',                             amount: 17000,  date: '2025-11-10' },
-          { description: 'LZY - CONSTRUTORA - REEMBOLSO GASOLINA OUTROS', amount: 630.65, date: '2025-11-10' },
-          { description: 'LZY - CONSTRUTORA - PARCIAL MÃO DE OBRA',       amount: 7000,   date: '2025-11-28' },
-          { description: 'LZY - CONSTRUTORA - MÃO DE OBRA',               amount: 17000,  date: '2025-12-05' },
-          { description: 'LZY - CONSTRUTORA - REEMBOLSO GASOLINA OUTROS', amount: 235.20, date: '2025-12-05' },
-          { description: 'LZY - CONSTRUTORA - MÃO DE OBRA',               amount: 17000,  date: '2025-12-18' },
-          { description: 'LZY - CONSTRUTORA - REEMBOLSO GASOLINA OUTROS', amount: 106.20, date: '2025-12-18' },
-          { description: 'LZY - CONSTRUTORA - MÃO DE OBRA',               amount: 9800,   date: '2026-02-18' },
-          { description: 'LZY - CONSTRUTORA - MÃO DE OBRA',               amount: 17000,  date: '2026-03-06' },
-          { description: 'LZY - CONSTRUTORA - MÃO DE OBRA',               amount: 17000,  date: '2026-03-20' },
-          { description: 'LZY - CONSTRUTORA - MÃO DE OBRA',               amount: 17000,  date: '2026-04-08' },
-          { description: 'LZY - MÃO DE OBRA REF. ABRIL (2 QUINZENA)',     amount: 40000,  date: '2026-05-07' },
-        ].map((t, idx) => ({
-          id: `img-${idx}`,
-          ...t,
-          type: 'receita' as const,
-          category: 'Recebimento de Obra',
-          entity: 'PJ' as const,
-          status: 'Recebido' as const,
-          obraId: '1',
-        }));
-        return { transactions: [...state.transactions, ...imageTransactions] };
-      }),
-
-      autoFillWeek: (startDate, endDate) => set((state) => {
-        const startMs = new Date(startDate + 'T00:00:00').getTime();
-        const endMs = new Date(endDate + 'T00:00:00').getTime();
-        
-        const daysToFill: string[] = [];
-        for (let t = startMs; t <= endMs; t += 86400000) {
-          const d = new Date(t);
-          if (d.getDay() !== 0 && d.getDay() !== 6) {
-            daysToFill.push(d.toISOString().split('T')[0]);
-          }
-        }
-
-        const newEmployees = state.employees.map(e => {
-          if (e.status !== 'Ativo') return e;
-          
-          let newPunches = [...(e.timePunches || [])];
-          for (const date of daysToFill) {
-            if (!newPunches.find(p => p.date === date)) {
-              newPunches.push({
-                id: generateId(),
-                date,
-                entry: '08:00',
-                exit: '17:00',
-                hoursWorked: 8,
-                valuePaid: e.dailyRate ?? 0,
-                note: 'Preenchimento Automático'
-              });
-            }
-          }
-          return { ...e, timePunches: newPunches };
-        });
-
-        return { employees: newEmployees };
-      }),
-    }),
-    {
-      name: 'lzy-erp-storage',
-      version: 4,
-      migrate: (persistedState: any, version: number) => {
-        let state = persistedState ?? {};
-
-        // v0/v1 → v2: obras não tinham stages
-        if (version < 2) {
-          const obras = (state.obras ?? []).map((o: any) => {
-            if (o.stages && o.stages.length > 0) return o;
-            const stages = generateStages(o.startDate, o.endDate);
-            return { ...o, stages, progress: o.progress ?? 0 };
-          });
-          state = { ...state, obras };
-        }
-
-        // v2 → v3: employees ganharam dailyRate, paymentType e timePunches
-        if (version < 3) {
-          const employees = (state.employees ?? []).map((e: any) => ({
-            cpf: '',
-            dailyRate: 0,
-            paymentType: 'diaria',
-            timePunches: [],
-            ...e,
-          }));
-          state = { ...state, employees };
-        }
-
-        // v3 → v4: inject default users if missing
-        if (version < 4) {
-          if (!state.users || state.users.length === 0) {
-            state.users = [
-              { id: 'u1', name: 'Administrador', username: 'adm', password: '123', role: 'admin' },
-              { id: 'u2', name: 'Engenharia', username: 'engenharia', password: '123', role: 'admin' },
-            ];
-          }
-        }
-
-        return state;
-      },
+      }));
     }
-  )
-);
+  },
+  updateSubStage: async (obraId, stageId, subStageId, data) => {
+    await supabase.from('sub_stages').update(data).eq('id', subStageId);
+    set((state) => ({
+      obras: state.obras.map(o => {
+        if (o.id !== obraId) return o;
+        const stages = o.stages.map(s => {
+          if (s.id !== stageId) return s;
+          const subStages = (s.subStages || []).map(sub => sub.id === subStageId ? { ...sub, ...data } : sub);
+          const totalWeight = subStages.reduce((acc, sub) => acc + (sub.weight || 0), 0);
+          const newProgress = subStages.length > 0 
+            ? (totalWeight > 0 
+                ? Math.round(subStages.reduce((acc, sub) => acc + sub.progress * ((sub.weight || 0) / totalWeight), 0))
+                : Math.round(subStages.reduce((acc, sub) => acc + sub.progress, 0) / subStages.length))
+            : s.progress;
+          return { ...s, subStages, progress: newProgress };
+        });
+        return { ...o, stages, progress: calcProgress(stages) };
+      })
+    }));
+  },
+  deleteSubStage: async (obraId, stageId, subStageId) => {
+    await supabase.from('sub_stages').delete().eq('id', subStageId);
+    set((state) => ({
+      obras: state.obras.map(o => {
+        if (o.id !== obraId) return o;
+        const stages = o.stages.map(s => {
+          if (s.id !== stageId) return s;
+          const subStages = (s.subStages || []).filter(sub => sub.id !== subStageId);
+          const totalWeight = subStages.reduce((acc, sub) => acc + (sub.weight || 0), 0);
+          const newProgress = subStages.length > 0 
+            ? (totalWeight > 0 
+                ? Math.round(subStages.reduce((acc, sub) => acc + sub.progress * ((sub.weight || 0) / totalWeight), 0))
+                : Math.round(subStages.reduce((acc, sub) => acc + sub.progress, 0) / subStages.length))
+            : s.progress;
+          return { ...s, subStages, progress: newProgress };
+        });
+        return { ...o, stages, progress: calcProgress(stages) };
+      })
+    }));
+  },
 
+  // TRANSACTIONS
+  addTransaction: async (transaction) => {
+    const dbTrans = { description: transaction.description, amount: transaction.amount, type: transaction.type, category: transaction.category, date: transaction.date, entity: transaction.entity, status: transaction.status, obra_id: transaction.obraId };
+    const { data } = await supabase.from('transactions').insert(dbTrans).select().single();
+    if (data) {
+      const newTrans: Transaction = { ...transaction, id: data.id };
+      let additions = [newTrans];
+      // Auto pro-labore deduction
+      if (newTrans.type === 'despesa' && newTrans.entity === 'PJ' && ['Pró-labore', 'Retirada'].includes(newTrans.category)) {
+        const dbRec = { description: `Recebimento: ${newTrans.description}`, amount: newTrans.amount, type: 'receita', category: 'Salário/Lucro', date: newTrans.date, entity: 'Pessoal', status: newTrans.status === 'Pago' ? 'Recebido' : 'Pendente' };
+        const { data: d2 } = await supabase.from('transactions').insert(dbRec).select().single();
+        if (d2) {
+          additions.push({ id: d2.id, description: d2.description, amount: Number(d2.amount), type: d2.type as 'receita', category: d2.category, date: d2.date, entity: d2.entity as 'Pessoal', status: d2.status as any });
+        }
+      }
+      set((state) => ({ transactions: [...state.transactions, ...additions] }));
+    }
+  },
+  updateTransaction: async (id, updated) => {
+    const toUpdate: any = { ...updated };
+    if (updated.obraId !== undefined) { toUpdate.obra_id = updated.obraId; delete toUpdate.obraId; }
+    await supabase.from('transactions').update(toUpdate).eq('id', id);
+    set((state) => ({ transactions: state.transactions.map((t) => t.id === id ? { ...t, ...updated } : t) }));
+  },
+  deleteTransaction: async (id) => {
+    await supabase.from('transactions').delete().eq('id', id);
+    set((state) => ({ transactions: state.transactions.filter(t => t.id !== id) }));
+  },
 
+  // INVENTORY
+  addInventoryItem: async (item) => {
+    const dbItem = { name: item.name, quantity: item.quantity, min_quantity: item.minQuantity, unit: item.unit, category: item.category };
+    const { data } = await supabase.from('inventory_items').insert(dbItem).select().single();
+    if (data) set((state) => ({ inventory: [...state.inventory, { id: data.id, name: data.name, quantity: Number(data.quantity), minQuantity: Number(data.min_quantity), unit: data.unit, category: data.category, movements: [] }] }));
+  },
+  updateInventoryItem: async (id, updated) => {
+    const toUpdate: any = { ...updated };
+    if (updated.minQuantity !== undefined) { toUpdate.min_quantity = updated.minQuantity; delete toUpdate.minQuantity; }
+    await supabase.from('inventory_items').update(toUpdate).eq('id', id);
+    set((state) => ({ inventory: state.inventory.map((i) => i.id === id ? { ...i, ...updated } : i) }));
+  },
+  deleteInventoryItem: async (id) => {
+    await supabase.from('inventory_items').delete().eq('id', id);
+    set((state) => ({ inventory: state.inventory.filter(i => i.id !== id) }));
+  },
+  addInventoryMovement: async (itemId, movement) => {
+    const dbMov = { item_id: itemId, date: movement.date, type: movement.type, quantity: movement.quantity, obra_id: movement.obraId, note: movement.note };
+    const { data } = await supabase.from('inventory_movements').insert(dbMov).select().single();
+    if (data) {
+      const item = get().inventory.find(i => i.id === itemId);
+      if (item) {
+        const newQuantity = movement.type === 'entrada' ? item.quantity + movement.quantity : item.quantity - movement.quantity;
+        await supabase.from('inventory_items').update({ quantity: newQuantity }).eq('id', itemId);
+        set((state) => ({
+          inventory: state.inventory.map((i) => {
+            if (i.id !== itemId) return i;
+            const newM = { id: data.id, date: data.date, type: data.type as any, quantity: Number(data.quantity), obraId: data.obra_id || undefined, note: data.note || '' };
+            return { ...i, quantity: newQuantity, movements: [...(i.movements || []), newM] };
+          })
+        }));
+      }
+    }
+  },
 
+  // EMPLOYEES
+  addEmployee: async (employee) => {
+    const dbEmp = { name: employee.name, cpf: employee.cpf, role: employee.role, status: employee.status, contact: employee.contact, daily_rate: employee.dailyRate, payment_type: employee.paymentType };
+    const { data } = await supabase.from('employees').insert(dbEmp).select().single();
+    if (data) {
+      set((state) => ({ employees: [...state.employees, { id: data.id, name: data.name, cpf: data.cpf || '', role: data.role, status: data.status as any, contact: data.contact || '', dailyRate: Number(data.daily_rate), paymentType: data.payment_type as any, timePunches: [] }] }));
+    }
+  },
+  updateEmployee: async (id, updated) => {
+    const toUpdate: any = { ...updated };
+    if (updated.dailyRate !== undefined) { toUpdate.daily_rate = updated.dailyRate; delete toUpdate.dailyRate; }
+    if (updated.paymentType !== undefined) { toUpdate.payment_type = updated.paymentType; delete toUpdate.paymentType; }
+    await supabase.from('employees').update(toUpdate).eq('id', id);
+    set((state) => ({ employees: state.employees.map((e) => e.id === id ? { ...e, ...updated } : e) }));
+  },
+  deleteEmployee: async (id) => {
+    await supabase.from('employees').delete().eq('id', id);
+    set((state) => ({ employees: state.employees.filter(e => e.id !== id) }));
+  },
+  addTimePunch: async (employeeId, punch) => {
+    const dbPunch = { employee_id: employeeId, date: punch.date, entry: punch.entry, exit: punch.exit, hours_worked: punch.hoursWorked, value_paid: punch.valuePaid, note: punch.note };
+    const { data } = await supabase.from('time_punches').insert(dbPunch).select().single();
+    if (data) {
+      set((state) => ({
+        employees: state.employees.map(e => e.id === employeeId ? { ...e, timePunches: [...(e.timePunches || []), { id: data.id, date: data.date, entry: data.entry, exit: data.exit, hoursWorked: Number(data.hours_worked), valuePaid: Number(data.value_paid), note: data.note || '' }] } : e)
+      }));
+    }
+  },
+  updateTimePunch: async (employeeId, punchId, data) => {
+    const toUpdate: any = { ...data };
+    if (data.hoursWorked !== undefined) { toUpdate.hours_worked = data.hoursWorked; delete toUpdate.hoursWorked; }
+    if (data.valuePaid !== undefined) { toUpdate.value_paid = data.valuePaid; delete toUpdate.valuePaid; }
+    await supabase.from('time_punches').update(toUpdate).eq('id', punchId);
+    set((state) => ({
+      employees: state.employees.map(e => e.id === employeeId ? { ...e, timePunches: (e.timePunches || []).map(p => p.id === punchId ? { ...p, ...data } : p) } : e)
+    }));
+  },
+  deleteTimePunch: async (employeeId, punchId) => {
+    await supabase.from('time_punches').delete().eq('id', punchId);
+    set((state) => ({
+      employees: state.employees.map(e => e.id === employeeId ? { ...e, timePunches: (e.timePunches || []).filter(p => p.id !== punchId) } : e)
+    }));
+  },
+  addAdvance: async (employeeId, amount, date, note) => {
+    const emp = get().employees.find(e => e.id === employeeId);
+    if (!emp) return;
+
+    const dbPunch = { employee_id: employeeId, date, entry: '00:00', exit: '00:00', hours_worked: 0, value_paid: -Math.abs(amount), note: note || 'Adiantamento' };
+    const { data: pData } = await supabase.from('time_punches').insert(dbPunch).select().single();
+    
+    const dbTrans = { description: `Adiantamento - ${emp.name} (${note || 'Adiantamento'})`, amount: Math.abs(amount), type: 'despesa', category: 'Serviços', date, entity: 'PJ', status: 'Pago' };
+    const { data: tData } = await supabase.from('transactions').insert(dbTrans).select().single();
+
+    if (pData && tData) {
+      set((state) => ({
+        employees: state.employees.map(e => e.id === employeeId ? { ...e, timePunches: [...(e.timePunches || []), { id: pData.id, date: pData.date, entry: pData.entry, exit: pData.exit, hoursWorked: Number(pData.hours_worked), valuePaid: Number(pData.value_paid), note: pData.note || '' }] } : e),
+        transactions: [...state.transactions, { id: tData.id, description: tData.description, amount: Number(tData.amount), type: tData.type as any, category: tData.category, date: tData.date, entity: tData.entity as any, status: tData.status as any }]
+      }));
+    }
+  },
+
+  // THEME
+  toggleDarkMode: () => set((state) => {
+    const newIsDark = !state.isDarkMode;
+    if (newIsDark) document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
+    return { isDarkMode: newIsDark };
+  }),
+
+  // EXTRAS
+  seedImageTransactions: () => {},
+  autoFillWeek: async (startDate, endDate) => {
+    const startMs = new Date(startDate + 'T00:00:00').getTime();
+    const endMs = new Date(endDate + 'T00:00:00').getTime();
+    const daysToFill: string[] = [];
+    for (let t = startMs; t <= endMs; t += 86400000) {
+      const d = new Date(t);
+      if (d.getDay() !== 0 && d.getDay() !== 6) daysToFill.push(d.toISOString().split('T')[0]);
+    }
+
+    const { employees } = get();
+    for (const e of employees) {
+      if (e.status !== 'Ativo') continue;
+      const punches = e.timePunches || [];
+      for (const date of daysToFill) {
+        if (!punches.find(p => p.date === date)) {
+          await get().addTimePunch(e.id, { date, entry: '08:00', exit: '17:00', hoursWorked: 8, valuePaid: e.dailyRate ?? 0, note: 'Preenchimento Automático' });
+        }
+      }
+    }
+  }
+
+}));

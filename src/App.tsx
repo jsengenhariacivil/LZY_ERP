@@ -13,16 +13,25 @@ import Login from './pages/Login';
 import { useStore } from './store/useStore';
 
 function App() {
-  const { isDarkMode, seedImageTransactions, currentUser } = useStore();
+  const { isDarkMode, seedImageTransactions, currentUser, initSupabase, isInitialized } = useStore();
 
   React.useEffect(() => {
+    initSupabase();
     seedImageTransactions();
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
     }
-  }, [isDarkMode]);
+  }, [isDarkMode, initSupabase]);
+
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-zinc-900">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 dark:border-indigo-400"></div>
+      </div>
+    );
+  }
   return (
     <BrowserRouter>
       {currentUser ? (

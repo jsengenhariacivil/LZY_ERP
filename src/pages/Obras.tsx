@@ -93,18 +93,24 @@ export default function Obras() {
               <tr>
                 <th className="px-6 py-4">Nome da Obra</th>
                 <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Progresso</th>
-                <th className="px-6 py-4">Orçamento</th>
-                <th className="px-6 py-4">Prazo</th>
+                <th className="px-6 py-4">Físico</th>
+                <th className="px-6 py-4">Financeiro Integrado</th>
                 <th className="px-6 py-4 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-zinc-800">
-              {filteredObras.map(obra => (
-                <React.Fragment key={obra.id}>
-                  <tr className="border-b border-gray-100 dark:border-zinc-800 hover:bg-gray-50/50 dark:hover:bg-zinc-800/30 transition-colors">
+              {filteredObras.map(obra => {
+                const executado = obra.budget * (obra.progress / 100);
+                const recebido = useStore.getState().transactions
+                  .filter(t => t.obraId === obra.id && t.type === 'receita' && t.status === 'Recebido')
+                  .reduce((acc, t) => acc + t.amount, 0);
+                const saldo = Math.max(0, obra.budget - recebido);
+
+                return (
+                  <tr key={obra.id} className="border-b border-gray-100 dark:border-zinc-800 hover:bg-gray-50/50 dark:hover:bg-zinc-800/30 transition-colors">
                   <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
                     {obra.name}
+                    <div className="text-xs text-gray-400 mt-1">{new Date(obra.startDate).toLocaleDateString('pt-BR')} até {new Date(obra.endDate).toLocaleDateString('pt-BR')}</div>
                   </td>
                   <td className="px-6 py-4">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${
@@ -120,20 +126,22 @@ export default function Obras() {
                     <div className="flex items-center gap-2">
                       <div className="w-16 bg-gray-200 dark:bg-zinc-700 rounded-full h-1.5">
                         <div 
-                          className="bg-zinc-900 dark:bg-zinc-300 h-1.5 rounded-full" 
+                          className="bg-indigo-500 h-1.5 rounded-full" 
                           style={{ width: `${obra.progress}%` }}
                         ></div>
                       </div>
-                      <span className="text-xs">{obra.progress}%</span>
+                      <span className="text-xs font-semibold">{obra.progress}%</span>
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    {formatCurrency(obra.budget)}
+                    <div className="text-xs space-y-1">
+                      <div className="flex justify-between w-48"><span className="text-gray-500">Orçamento:</span><span className="font-medium text-gray-900 dark:text-gray-200">{formatCurrency(obra.budget)}</span></div>
+                      <div className="flex justify-between w-48"><span className="text-gray-500">Executado:</span><span className="font-medium text-blue-600 dark:text-blue-400">{formatCurrency(executado)}</span></div>
+                      <div className="flex justify-between w-48"><span className="text-gray-500">Recebido:</span><span className="font-medium text-emerald-600 dark:text-emerald-400">{formatCurrency(recebido)}</span></div>
+                      <div className="flex justify-between w-48 border-t border-gray-200 dark:border-zinc-700 pt-1 mt-1"><span className="text-gray-500">Saldo:</span><span className="font-semibold text-gray-900 dark:text-gray-200">{formatCurrency(saldo)}</span></div>
+                    </div>
                   </td>
-                  <td className="px-6 py-4">
-                    {new Date(obra.startDate).toLocaleDateString('pt-BR')} até {new Date(obra.endDate).toLocaleDateString('pt-BR')}
-                  </td>
-                  <td className="px-6 py-4 text-right">
+                  <td className="px-6 py-4 text-right align-top">
                     <div className="flex justify-end gap-2">
                       <button
                         onClick={() => setCronogramaObraId(obra.id)}
@@ -151,8 +159,8 @@ export default function Obras() {
                     </div>
                   </td>
                 </tr>
-              </React.Fragment>
-            ))}
+                );
+              })}
             {filteredObras.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
