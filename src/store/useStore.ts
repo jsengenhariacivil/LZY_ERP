@@ -30,6 +30,10 @@ export type Obra = {
   budget: number;
   startDate: string;
   endDate: string;
+  size?: number;
+  materialType?: string;
+  constructionSystem?: string;
+  _generateCronograma?: boolean;
   stages: Stage[];
 };
 
@@ -203,7 +207,11 @@ export const useStore = create<AppState>()((set, get) => ({
       });
       return {
         id: o.id, name: o.name, status: o.status, progress: Number(o.progress), budget: Number(o.budget),
-        startDate: o.start_date, endDate: o.end_date, stages: stagesForObra
+        startDate: o.start_date, endDate: o.end_date, 
+        size: o.size ? Number(o.size) : undefined,
+        materialType: o.material_type || undefined,
+        constructionSystem: o.construction_system || undefined,
+        stages: stagesForObra
       };
     });
 
@@ -261,10 +269,89 @@ export const useStore = create<AppState>()((set, get) => ({
 
   // OBRAS
   addObra: async (obra) => {
-    const dbObra = { name: obra.name, status: obra.status, budget: obra.budget, start_date: obra.startDate, end_date: obra.endDate, progress: 0 };
+    const dbObra = { 
+      name: obra.name, 
+      status: obra.status, 
+      budget: obra.budget, 
+      start_date: obra.startDate, 
+      end_date: obra.endDate, 
+      progress: 0,
+      size: obra.size,
+      material_type: obra.materialType,
+      construction_system: obra.constructionSystem
+    };
+    
     const { data } = await supabase.from('obras').insert(dbObra).select().single();
     if (data) {
-      const newObra: Obra = { id: data.id, name: data.name, status: data.status as any, progress: 0, budget: Number(data.budget), startDate: data.start_date, endDate: data.end_date, stages: [] };
+      let newObra: Obra = { 
+        id: data.id, 
+        name: data.name, 
+        status: data.status as any, 
+        progress: 0, 
+        budget: Number(data.budget), 
+        startDate: data.start_date, 
+        endDate: data.end_date, 
+        size: data.size ? Number(data.size) : undefined,
+        materialType: data.material_type || undefined,
+        constructionSystem: data.construction_system || undefined,
+        stages: [] 
+      };
+
+      // Gerar cronograma automático se houver material_type correspondente a um template
+      if (data.material_type && obra._generateCronograma) {
+        // Obter os templates importando dinamicamente para evitar problemas de dependência circular
+        const { cronogramaTemplates } = await import('../lib/cronogramaTemplates');
+        const template = cronogramaTemplates[data.material_type];
+        
+        if (template) {
+          // Para cada etapa do template, insere no supabase
+          for (const tStage of template) {
+            const { data: stageData } = await supabase.from('stages').insert({
+              obra_id: data.id,
+              name: tStage.name,
+              weight: tStage.weight,
+              progress: 0,
+              start_date: data.start_date,
+              end_date: data.end_date,
+              value: Number(data.budget) * (tStage.weight / 100)
+            }).select().single();
+
+            if (stageData) {
+              const newStage: Stage = {
+                id: stageData.id,
+                name: stageData.name,
+                weight: Number(stageData.weight),
+                progress: 0,
+                startDate: stageData.start_date,
+                endDate: stageData.end_date,
+                value: Number(stageData.value),
+                subStages: []
+              };
+
+              // Insere subetapas
+              for (const tSub of tStage.subStages) {
+                const { data: subData } = await supabase.from('sub_stages').insert({
+                  stage_id: stageData.id,
+                  name: tSub.name,
+                  progress: 0,
+                  weight: tSub.weight
+                }).select().single();
+
+                if (subData) {
+                  newStage.subStages!.push({
+                    id: subData.id,
+                    name: subData.name,
+                    progress: 0,
+                    weight: Number(subData.weight)
+                  });
+                }
+              }
+              newObra.stages.push(newStage);
+            }
+          }
+        }
+      }
+
       set((state) => ({ obras: [...state.obras, newObra] }));
     }
   },

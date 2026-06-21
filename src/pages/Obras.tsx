@@ -17,6 +17,10 @@ export default function Obras() {
     budget: 0,
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0],
+    size: 0,
+    materialType: 'Alvenaria',
+    constructionSystem: 'Padrão',
+    _generateCronograma: true
   });
 
   const filteredObras = obras.filter(o => o.name.toLowerCase().includes(searchTerm.toLowerCase()));
@@ -29,6 +33,10 @@ export default function Obras() {
         budget: obra.budget,
         startDate: obra.startDate,
         endDate: obra.endDate,
+        size: obra.size || 0,
+        materialType: obra.materialType || 'Alvenaria',
+        constructionSystem: obra.constructionSystem || 'Padrão',
+        _generateCronograma: false // Na edição não geramos novamente
       });
       setEditingId(obra.id);
     } else {
@@ -38,6 +46,10 @@ export default function Obras() {
         budget: 0,
         startDate: new Date().toISOString().split('T')[0],
         endDate: new Date().toISOString().split('T')[0],
+        size: 0,
+        materialType: 'Alvenaria',
+        constructionSystem: 'Padrão',
+        _generateCronograma: true
       });
       setEditingId(null);
     }
@@ -209,16 +221,70 @@ export default function Obras() {
               <p className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 rounded-lg px-3 py-2">
                 💡 O progresso é calculado automaticamente pelas etapas no Cronograma.
               </p>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Orçamento Previsto (R$)</label>
-                <input 
-                  required
-                  type="number" 
-                  value={formData.budget}
-                  onChange={(e) => setFormData({...formData, budget: Number(e.target.value)})}
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white dark:text-white"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Orçamento Previsto (R$)</label>
+                  <input 
+                    required
+                    type="number" 
+                    value={formData.budget}
+                    onChange={(e) => setFormData({...formData, budget: Number(e.target.value)})}
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tamanho da Obra (m²)</label>
+                  <input 
+                    required
+                    type="number" 
+                    value={formData.size}
+                    onChange={(e) => setFormData({...formData, size: Number(e.target.value)})}
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white dark:text-white"
+                  />
+                </div>
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sistema/Material</label>
+                  <select 
+                    value={formData.materialType}
+                    onChange={(e) => setFormData({...formData, materialType: e.target.value})}
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white dark:text-white"
+                  >
+                    <option value="Alvenaria">Alvenaria Padrão</option>
+                    <option value="Light Steel Frame">Light Steel Frame</option>
+                    <option value="Madeira">Wood Frame / Madeira</option>
+                    <option value="Pré-moldado">Pré-moldado</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Padrão Construtivo</label>
+                  <select 
+                    value={formData.constructionSystem}
+                    onChange={(e) => setFormData({...formData, constructionSystem: e.target.value})}
+                    className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white dark:text-white"
+                  >
+                    <option value="Econômico">Econômico</option>
+                    <option value="Médio Padrão">Médio Padrão</option>
+                    <option value="Alto Padrão">Alto Padrão</option>
+                  </select>
+                </div>
+              </div>
+              
+              {!editingId && (
+                <div className="flex items-center gap-2 mt-2">
+                  <input
+                    type="checkbox"
+                    id="genCronograma"
+                    checked={formData._generateCronograma}
+                    onChange={(e) => setFormData({...formData, _generateCronograma: e.target.checked})}
+                    className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                  />
+                  <label htmlFor="genCronograma" className="text-sm text-gray-700 dark:text-gray-300 font-medium">
+                    Gerar Cronograma Físico Automático (Modelo {formData.materialType})
+                  </label>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data de Início</label>
