@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useStore, type Obra, type Stage } from '../store/useStore';
 import {
-  X, TrendingUp, Calendar, DollarSign, CheckCircle2, AlertCircle, Clock, Plus, ChevronDown, ChevronRight, Trash2
+  X, TrendingUp, Calendar, DollarSign, CheckCircle2, AlertCircle, Clock, Plus, ChevronDown, ChevronRight, Trash2, Download, Upload
 } from 'lucide-react';
+import GanttChart from './GanttChart';
+import { downloadCsvTemplate, parseCsvContent } from '../lib/csvHelper';
 
 interface CronogramaProps {
   obra: Obra;
@@ -37,6 +39,7 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
   const [expandedStages, setExpandedStages] = useState<Record<string, boolean>>({});
   const [newSubStage, setNewSubStage] = useState<Record<string, { name: string; weight: number }>>({});
 
+  const [activeTab, setActiveTab] = useState<'detalhes' | 'gantt'>('detalhes');
   const [showAddService, setShowAddService] = useState(false);
   const [newService, setNewService] = useState({
     name: '',
@@ -44,6 +47,23 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0],
   });
+
+  const handleImportCsv = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const text = ev.target?.result as string;
+      const parsed = parseCsvContent(text);
+      if (parsed.length > 0) {
+        if (window.confirm(`Você está importando ${parsed.length} linhas. Isso irá substituir as etapas atuais desta obra. Deseja continuar?`)) {
+          await useStore.getState().importCronograma(obra.id, parsed);
+        }
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // reseta o input
+  };
 
   const totalWeight = obra.stages?.reduce((a, s) => a + s.weight, 0) ?? 100;
   const progressFisico = obra.progress;
@@ -91,19 +111,33 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
       <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-5xl border border-gray-200 dark:border-zinc-800 my-6">
 
         {/* ── Header ─────────────────────────────────────────────────────── */}
-        <div className="px-8 py-5 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between">
+        <div className="px-8 py-5 border-b border-gray-200 dark:border-zinc-800 flex items-center justify-between flex-wrap gap-4">
           <div>
             <h2 className="text-xl font-bold text-zinc-900 dark:text-white">
               Cronograma Físico-Financeiro
             </h2>
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-0.5">{obra.name}</p>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
-          >
-            <X size={22} />
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={downloadCsvTemplate}
+              className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 dark:text-gray-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 rounded-lg flex items-center gap-2 transition-colors"
+            >
+              <Download size={16} />
+              Modelo CSV
+            </button>
+            <label className="cursor-pointer px-3 py-1.5 text-sm font-medium text-emerald-700 bg-emerald-100 hover:bg-emerald-200 dark:text-emerald-400 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/50 rounded-lg flex items-center gap-2 transition-colors">
+              <Upload size={16} />
+              Importar Planilha
+              <input type="file" accept=".csv" className="hidden" onChange={handleImportCsv} />
+            </label>
+            <button
+              onClick={onClose}
+              className="ml-2 p-2 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
+            >
+              <X size={22} />
+            </button>
+          </div>
         </div>
 
         {/* ── KPIs ───────────────────────────────────────────────────────── */}
@@ -145,23 +179,43 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
           ))}
         </div>
 
-        {/* ── Barra de progresso global ───────────────────────────────────── */}
-        <div className="px-6 py-4 border-b border-gray-100 dark:border-zinc-800">
-          <div className="flex justify-between text-sm mb-2">
-            <span className="font-medium text-zinc-800 dark:text-zinc-200">Progresso Geral da Obra</span>
-            <span className="font-bold text-zinc-900 dark:text-white">{progressFisico}%</span>
-          </div>
-          <div className="w-full bg-gray-200 dark:bg-zinc-700 rounded-full h-3 overflow-hidden">
-            <div
-              className="h-3 rounded-full bg-gradient-to-r from-blue-500 to-emerald-500 transition-all duration-500"
-              style={{ width: `${progressFisico}%` }}
-            />
-          </div>
-          <div className="flex justify-between text-xs text-gray-400 mt-1">
-            <span>{fmtDate(obra.startDate)}</span>
-            <span>{fmtDate(obra.endDate)}</span>
-          </div>
+        {/* ── Tabs ───────────────────────────────────────────────────────── */}
+        <div className="px-6 flex items-center gap-6 border-b border-gray-200 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-800/20">
+          <button
+            onClick={() => setActiveTab('detalhes')}
+            className={`py-3 px-1 border-b-2 text-sm font-medium transition-colors ${activeTab === 'detalhes' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+          >
+            Detalhes Físico-Financeiro
+          </button>
+          <button
+            onClick={() => setActiveTab('gantt')}
+            className={`py-3 px-1 border-b-2 text-sm font-medium transition-colors ${activeTab === 'gantt' ? 'border-blue-500 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'}`}
+          >
+            Gráfico de Gantt
+          </button>
         </div>
+
+        {activeTab === 'gantt' && <GanttChart obra={obra} />}
+
+        {activeTab === 'detalhes' && (
+          <>
+            {/* ── Barra de progresso global ───────────────────────────────────── */}
+            <div className="px-6 py-4 border-b border-gray-100 dark:border-zinc-800">
+              <div className="flex justify-between text-sm mb-2">
+                <span className="font-medium text-zinc-800 dark:text-zinc-200">Progresso Geral da Obra</span>
+                <span className="font-bold text-zinc-900 dark:text-white">{progressFisico}%</span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-zinc-700 rounded-full h-3 overflow-hidden">
+                <div
+                  className="h-3 rounded-full bg-gradient-to-r from-blue-500 to-emerald-500 transition-all duration-500"
+                  style={{ width: `${progressFisico}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-gray-400 mt-1">
+                <span>{fmtDate(obra.startDate)}</span>
+                <span>{fmtDate(obra.endDate)}</span>
+              </div>
+            </div>
 
         {/* ── Tabela de Etapas ────────────────────────────────────────────── */}
         <div className="px-6 py-4">
@@ -462,6 +516,8 @@ export default function Cronograma({ obra, onClose }: CronogramaProps) {
             <span className="ml-auto italic">Clique no % para editar o progresso de cada etapa</span>
           </div>
         </div>
+          </>
+        )}
       </div>
     </div>
   );

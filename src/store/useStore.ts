@@ -123,6 +123,7 @@ interface AppState {
   addSubStage: (obraId: string, stageId: string, name: string, weight?: number) => Promise<void>;
   updateSubStage: (obraId: string, stageId: string, subStageId: string, data: Partial<SubStage>) => Promise<void>;
   deleteSubStage: (obraId: string, stageId: string, subStageId: string) => Promise<void>;
+  importCronograma: (obraId: string, parsedData: any[]) => Promise<void>;
 
   addTransaction: (transaction: Omit<Transaction, 'id'>) => Promise<void>;
   updateTransaction: (id: string, transaction: Partial<Transaction>) => Promise<void>;
@@ -466,6 +467,77 @@ export const useStore = create<AppState>()((set, get) => ({
           return { ...s, subStages, progress: newProgress };
         });
         return { ...o, stages, progress: calcProgress(stages) };
+      })
+    }));
+  },
+
+  importCronograma: async (obraId, parsedData) => {
+    const obra = get().obras.find(o => o.id === obraId);
+    if (!obra) return;
+
+    // Primeiro apaga os stages e sub_stages antigos do BD para essa obra
+    await supabase.from('stages').delete().eq('obra_id', obraId);
+    
+    const newStages: Stage[] = [];
+    let currentStageObj: Stage | null = null;
+    let currentStageDbId: string | null = null;
+
+    // A planilha deve estar na ordem certa (Etapa, depois suas Subetapas em sequência, ou Etapa sozinha)
+    for (const row of parsedData) {
+      if (row.Subetapa) {
+        // É uma subetapa (assumindo que pertence à última etapa cadastrada)
+        if (currentStageDbId && currentStageObj) {
+          const { data: subData } = await supabase.from('sub_stages').insert({
+            stage_id: currentStageDbId,
+            name: row.Subetapa,
+            weight: row.Peso,
+            progress: 0
+          }).select().single();
+          if (subData) {
+            currentStageObj.subStages!.push({
+              id: subData.id,
+              name: subData.name,
+              progress: 0,
+              weight: Number(subData.weight)
+            });
+          }
+        }
+      } else if (row.Etapa) {
+        // É uma Etapa principal
+        const weight = row.Peso;
+        const value = obra.budget > 0 ? (obra.budget * (weight / 100)) : 0;
+        
+        const { data: stageData } = await supabase.from('stages').insert({
+          obra_id: obraId,
+          name: row.Etapa,
+          weight,
+          progress: 0,
+          start_date: row.DataInicio || obra.startDate,
+          end_date: row.DataFim || obra.endDate,
+          value
+        }).select().single();
+
+        if (stageData) {
+          currentStageDbId = stageData.id;
+          currentStageObj = {
+            id: stageData.id,
+            name: stageData.name,
+            weight: Number(stageData.weight),
+            progress: 0,
+            startDate: stageData.start_date,
+            endDate: stageData.end_date,
+            value: Number(stageData.value),
+            subStages: []
+          };
+          newStages.push(currentStageObj);
+        }
+      }
+    }
+
+    set((state) => ({
+      obras: state.obras.map(o => {
+        if (o.id !== obraId) return o;
+        return { ...o, stages: newStages, progress: calcProgress(newStages) };
       })
     }));
   },
