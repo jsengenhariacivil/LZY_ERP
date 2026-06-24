@@ -122,7 +122,7 @@ export default function Obras() {
                   <tr key={obra.id} className="border-b border-gray-100 dark:border-zinc-800 hover:bg-gray-50/50 dark:hover:bg-zinc-800/30 transition-colors">
                   <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
                     {obra.name}
-                    <div className="text-xs text-gray-400 mt-1">{new Date(obra.startDate).toLocaleDateString('pt-BR')} até {new Date(obra.endDate).toLocaleDateString('pt-BR')}</div>
+                    <div className="text-xs text-gray-400 mt-1">{new Date(obra.startDate + 'T00:00:00').toLocaleDateString('pt-BR')} até {new Date(obra.endDate + 'T00:00:00').toLocaleDateString('pt-BR')}</div>
                   </td>
                   <td className="px-6 py-4">
                     <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${

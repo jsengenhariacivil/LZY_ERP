@@ -267,7 +267,7 @@ export default function Dashboard() {
                   <div className="min-w-0">
                     <p className="font-medium text-gray-900 dark:text-white text-sm truncate">{item.description}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {item.category}
+                      {new Date(item.date + 'T00:00:00').toLocaleDateString('pt-BR')} • {item.category}
                       {item.obraId && ` • ${obras.find(o => o.id === item.obraId)?.name ?? ''}`}
                     </p>
                   </div>

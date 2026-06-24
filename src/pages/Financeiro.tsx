@@ -233,7 +233,7 @@ export default function Financeiro() {
                     {t.description}
                   </td>
                   <td className="px-6 py-4">
-                    {new Date(t.date).toLocaleDateString('pt-BR')}
+                    {new Date(t.date + 'T00:00:00').toLocaleDateString('pt-BR')}
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
@@ -352,12 +352,30 @@ export default function Financeiro() {
                     className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white dark:text-white"
                   />
                   <datalist id="categories">
-                    <option value="Materiais" />
-                    <option value="Serviços" />
-                    <option value="Equipamentos" />
-                    <option value="Impostos" />
-                    <option value="Pró-labore" />
-                    <option value="Retirada" />
+                    {formData.type === 'receita' ? (
+                      <>
+                        <option value="Medição de Obra" />
+                        <option value="Sinal / Adiantamento" />
+                        <option value="Venda de Imóvel" />
+                        <option value="Aporte de Sócios" />
+                        <option value="Rendimento" />
+                      </>
+                    ) : (
+                      <>
+                        <option value="Mão de Obra (Própria)" />
+                        <option value="Mão de Obra (Empreiteiros)" />
+                        <option value="Materiais Básicos" />
+                        <option value="Materiais de Acabamento" />
+                        <option value="Locação de Equipamentos" />
+                        <option value="EPIs e Ferramentas" />
+                        <option value="Combustível / Transporte" />
+                        <option value="Taxas (Alvará, ART, CREA)" />
+                        <option value="Alimentação" />
+                        <option value="Impostos" />
+                        <option value="Pró-labore" />
+                        <option value="Retirada" />
+                      </>
+                    )}
                   </datalist>
                   {formData.type === 'despesa' && (formData.category === 'Pró-labore' || formData.category === 'Retirada') && formData.entity === 'PJ' && !editingId && (
                     <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Ao salvar, uma receita correspondente será criada no painel "Pessoal".</p>
