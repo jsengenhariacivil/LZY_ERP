@@ -281,7 +281,10 @@ export const useStore = create<AppState>()((set, get) => ({
       construction_system: obra.constructionSystem
     };
     
-    const { data } = await supabase.from('obras').insert(dbObra).select().single();
+    const { data, error } = await supabase.from('obras').insert(dbObra).select().single();
+    if (error) {
+      console.error("Erro ao salvar Obra:", error);
+    }
     if (data) {
       let newObra: Obra = { 
         id: data.id, 
@@ -363,6 +366,9 @@ export const useStore = create<AppState>()((set, get) => ({
     if (updated.startDate) toUpdate.start_date = updated.startDate;
     if (updated.endDate) toUpdate.end_date = updated.endDate;
     if (updated.progress !== undefined) toUpdate.progress = updated.progress;
+    if (updated.size !== undefined) toUpdate.size = updated.size;
+    if (updated.materialType !== undefined) toUpdate.material_type = updated.materialType;
+    if (updated.constructionSystem !== undefined) toUpdate.construction_system = updated.constructionSystem;
     
     await supabase.from('obras').update(toUpdate).eq('id', id);
     set((state) => ({ obras: state.obras.map((o) => o.id === id ? { ...o, ...updated } : o) }));
