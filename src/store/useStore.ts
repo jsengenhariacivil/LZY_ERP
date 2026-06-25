@@ -375,8 +375,14 @@ export const useStore = create<AppState>()((set, get) => ({
     set((state) => ({ obras: state.obras.map((o) => o.id === id ? { ...o, ...updated } : o) }));
   },
   deleteObra: async (id) => {
+    // Apaga as transações relacionadas à obra para atualizar o financeiro
+    await supabase.from('transactions').delete().eq('obra_id', id);
     await supabase.from('obras').delete().eq('id', id);
-    set((state) => ({ obras: state.obras.filter(o => o.id !== id) }));
+    
+    set((state) => ({ 
+      obras: state.obras.filter(o => o.id !== id),
+      transactions: state.transactions.filter(t => t.obraId !== id)
+    }));
   },
 
   // STAGES
