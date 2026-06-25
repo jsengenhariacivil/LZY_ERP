@@ -113,7 +113,7 @@ export default function Financeiro() {
       addTransaction(formData);
       
       const catLower = formData.category.toLowerCase();
-      const isMaterialOrEquip = catLower.includes('material') || catLower.includes('equipamento') || catLower.includes('ferramenta');
+      const isMaterialOrEquip = catLower.includes('materi') || catLower.includes('equipamento') || catLower.includes('ferramenta');
       
       if (formData.type === 'despesa' && isMaterialOrEquip && addToInventory && invItemName && invQuantity > 0) {
         const existingItem = inventory.find(i => i.name.toLowerCase() === invItemName.toLowerCase());
@@ -449,7 +449,7 @@ export default function Financeiro() {
               </div>
 
               {/* Integração com Estoque */}
-              {formData.type === 'despesa' && (formData.category.toLowerCase().includes('material') || formData.category.toLowerCase().includes('equipamento') || formData.category.toLowerCase().includes('ferramenta')) && !editingId && (
+              {formData.type === 'despesa' && (formData.category.toLowerCase().includes('materi') || formData.category.toLowerCase().includes('equipamento') || formData.category.toLowerCase().includes('ferramenta')) && !editingId && (
                 <div className="bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-800/30 p-4 rounded-lg space-y-3 mt-4">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input 
