@@ -2,12 +2,23 @@ import React, { useState } from 'react';
 import { useStore, type Transaction } from '../store/useStore';
 import { Plus, Search, ArrowUpRight, ArrowDownRight, Edit2, Trash2 } from 'lucide-react';
 
+const RECEITAS_PADRAO = [
+  'Medição de Obra', 'Sinal / Adiantamento', 'Venda de Imóvel', 'Aporte de Sócios', 'Rendimento'
+];
+const DESPESAS_PADRAO = [
+  'Mão de Obra (Própria)', 'Mão de Obra (Empreiteiros)', 'Materiais Básicos', 'Materiais de Acabamento', 
+  'Locação de Equipamentos', 'EPIs e Ferramentas', 'Combustível / Transporte', 'Taxas (Alvará, ART, CREA)', 
+  'Alimentação', 'Impostos', 'Pró-labore', 'Retirada'
+];
+
 export default function Financeiro() {
   const { transactions, obras, inventory, addTransaction, deleteTransaction, updateTransaction, addInventoryItem, addInventoryMovement } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [entityFilter, setEntityFilter] = useState<'Todas' | 'PJ' | 'Pessoal'>('Todas');
+
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
 
   const [addToInventory, setAddToInventory] = useState(false);
   const [invItemName, setInvItemName] = useState('');
@@ -64,6 +75,8 @@ export default function Financeiro() {
     setInvQuantity(0);
 
     if (transaction) {
+      const padroes = transaction.type === 'receita' ? RECEITAS_PADRAO : DESPESAS_PADRAO;
+      setIsCustomCategory(!padroes.includes(transaction.category));
       setFormData({
         description: transaction.description,
         amount: transaction.amount,
@@ -76,11 +89,12 @@ export default function Financeiro() {
       });
       setEditingId(transaction.id);
     } else {
+      setIsCustomCategory(false);
       setFormData({
         description: '',
         amount: 0,
         type: 'despesa',
-        category: 'Materiais',
+        category: 'Materiais Básicos',
         date: new Date().toISOString().split('T')[0],
         entity: entityFilter !== 'Todas' ? entityFilter : 'PJ',
         status: 'Pendente',
@@ -98,18 +112,13 @@ export default function Financeiro() {
     } else {
       addTransaction(formData);
       
-      // Lógica de integração com estoque para Novas Despesas de Materiais
-      if (formData.type === 'despesa' && ['Materiais', 'Equipamentos', 'Ferramentas'].includes(formData.category) && addToInventory && invItemName && invQuantity > 0) {
+      const catLower = formData.category.toLowerCase();
+      const isMaterialOrEquip = catLower.includes('material') || catLower.includes('equipamento') || catLower.includes('ferramenta');
+      
+      if (formData.type === 'despesa' && isMaterialOrEquip && addToInventory && invItemName && invQuantity > 0) {
         const existingItem = inventory.find(i => i.name.toLowerCase() === invItemName.toLowerCase());
         
         if (!existingItem) {
-          // Precisamos gerar um ID ou usar o do store, mas o store add não retorna ID.
-          // Para contornar, usamos a store diretamente? Melhor adicionar depois e pegar do state, mas addInventoryItem é síncrono.
-          // Como o Zustand addInventoryItem não retorna a ID criada, vamos criar o item aqui e passar o ID se possível, 
-          // ou modificar a store para aceitar ID no item, mas Omit<id> impede. 
-          // Vamos fazer uma checagem simples: se não existe, ignoramos o addInventoryMovement e só chamamos addInventoryItem.
-          // Mas queremos ter a movimentação. Vamos melhorar isso na store depois.
-          // Por enquanto, criamos o item com quantity = invQuantity direto.
           addInventoryItem({
             name: invItemName,
             category: formData.category,
@@ -117,7 +126,6 @@ export default function Financeiro() {
             minQuantity: 0,
             unit: 'Unidades',
           });
-          // Nota: não teremos o movement guardado nesse item que acabou de ser criado, apenas a quantity setada.
         } else {
           addInventoryMovement(existingItem.id, {
             date: formData.date,
@@ -343,40 +351,42 @@ export default function Financeiro() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Categoria</label>
-                  <input 
+                  <select 
                     required
-                    type="text" 
-                    list="categories"
-                    value={formData.category}
-                    onChange={(e) => setFormData({...formData, category: e.target.value})}
+                    value={isCustomCategory ? 'Outra' : formData.category}
+                    onChange={(e) => {
+                      if (e.target.value === 'Outra') {
+                        setIsCustomCategory(true);
+                        setFormData({...formData, category: ''});
+                      } else {
+                        setIsCustomCategory(false);
+                        setFormData({...formData, category: e.target.value});
+                      }
+                    }}
                     className="w-full px-3 py-2 bg-gray-50 dark:bg-zinc-800/50 border border-gray-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-white dark:text-white"
-                  />
-                  <datalist id="categories">
+                  >
+                    <option value="" disabled>Selecione uma categoria...</option>
                     {formData.type === 'receita' ? (
-                      <>
-                        <option value="Medição de Obra" />
-                        <option value="Sinal / Adiantamento" />
-                        <option value="Venda de Imóvel" />
-                        <option value="Aporte de Sócios" />
-                        <option value="Rendimento" />
-                      </>
+                      RECEITAS_PADRAO.map(c => <option key={c} value={c}>{c}</option>)
                     ) : (
-                      <>
-                        <option value="Mão de Obra (Própria)" />
-                        <option value="Mão de Obra (Empreiteiros)" />
-                        <option value="Materiais Básicos" />
-                        <option value="Materiais de Acabamento" />
-                        <option value="Locação de Equipamentos" />
-                        <option value="EPIs e Ferramentas" />
-                        <option value="Combustível / Transporte" />
-                        <option value="Taxas (Alvará, ART, CREA)" />
-                        <option value="Alimentação" />
-                        <option value="Impostos" />
-                        <option value="Pró-labore" />
-                        <option value="Retirada" />
-                      </>
+                      DESPESAS_PADRAO.map(c => <option key={c} value={c}>{c}</option>)
                     )}
-                  </datalist>
+                    <option value="Outra">Outra (digitar...)</option>
+                  </select>
+                  
+                  {isCustomCategory && (
+                    <div className="mt-2">
+                      <input 
+                        required
+                        type="text" 
+                        placeholder="Digite a categoria..."
+                        value={formData.category}
+                        onChange={(e) => setFormData({...formData, category: e.target.value})}
+                        className="w-full px-3 py-2 bg-white dark:bg-zinc-900 border border-blue-200 dark:border-blue-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white"
+                      />
+                    </div>
+                  )}
+
                   {formData.type === 'despesa' && (formData.category === 'Pró-labore' || formData.category === 'Retirada') && formData.entity === 'PJ' && !editingId && (
                     <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Ao salvar, uma receita correspondente será criada no painel "Pessoal".</p>
                   )}
@@ -439,7 +449,7 @@ export default function Financeiro() {
               </div>
 
               {/* Integração com Estoque */}
-              {formData.type === 'despesa' && ['Materiais', 'Equipamentos', 'Ferramentas'].includes(formData.category) && !editingId && (
+              {formData.type === 'despesa' && (formData.category.toLowerCase().includes('material') || formData.category.toLowerCase().includes('equipamento') || formData.category.toLowerCase().includes('ferramenta')) && !editingId && (
                 <div className="bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-800/30 p-4 rounded-lg space-y-3 mt-4">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input 
